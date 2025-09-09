@@ -50,6 +50,7 @@ desktop.ini
 # Model cache (these are large files)
 models/cache/
 models_cache/
+XILOv5/
 .cache/
 huggingface_cache/
 
