@@ -40,10 +40,16 @@ class PhiTutor:
             if self.tokenizer.pad_token is None:
                 self.tokenizer.pad_token = self.tokenizer.eos_token
             
-            # Load model
+            # Load model with restricted context window
             logger.info("Loading model...")
+            from transformers import AutoConfig
+            config = AutoConfig.from_pretrained(Config.MODEL_NAME, trust_remote_code=True)
+            config.max_position_embeddings = 4096  # Reduce from 128K to 4K
+            logger.info(f"Restricting context window to {config.max_position_embeddings} tokens")
+            
             self.model = AutoModelForCausalLM.from_pretrained(
                 Config.MODEL_NAME,
+                config=config,
                 cache_dir=Config.MODEL_CACHE_DIR,
                 torch_dtype=torch.float16 if gpu_manager.is_available else torch.float32,
                 trust_remote_code=True,
@@ -76,7 +82,7 @@ class PhiTutor:
     def format_prompt(self, user_message, system_message=None):
         """Format message for Phi 3.5 chat template"""
         if system_message is None:
-            system_message = """You are Xilo, an intelligent AI tutor. Your role is to:
+            system_message = """You are Xilo AI, an intelligent AI tutor made with Microsoft Phi 3.5 and optimized for Intel GPU. Your role is to:
             
 1. Provide clear, educational explanations
 2. Break down complex topics into understandable parts
@@ -85,7 +91,7 @@ class PhiTutor:
 5. Ask follow-up questions to deepen understanding
 6. Be patient and supportive
 
-Always aim to teach rather than just provide answers. Make learning engaging and interactive."""
+When introducing yourself, say "I am Xilo AI, made with Phi 3.5" rather than identifying as Phi directly. Always aim to teach rather than just provide answers. Make learning engaging and interactive."""
 
         messages = [
             {"role": "system", "content": system_message},
