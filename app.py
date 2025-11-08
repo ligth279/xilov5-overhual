@@ -1,462 +1,256 @@
 """
 Xilo AI Tutor - Main Flask Application
-Optimized for Intel GPU with XMX engines and Phi 3.5 model
+Following AI Playground backend service architecture patterns
+Optimized for Intel Arc GPU with IPEX-LLM
 """
 
-from flask import Flask, render_template, request, jsonify
+# CRITICAL: Set environment variable BEFORE any imports
+# This tells ipex-llm to skip its IPEX import check (PyTorch 2.6 auto-loads IPEX)
+import os
+os.environ['BIGDL_IMPORT_IPEX'] = 'False'
+
+from apiflask import APIFlask
+from flask import render_template, request, jsonify, Response, stream_with_context
 import logging
-import threading
+import json
 import time
+from pathlib import Path
+
 from config import Config
 from models.phi_model import phi_tutor
 from utils.intel_gpu import gpu_manager
 
-# Configure logging (Windows-compatible, no emojis in console)
-import sys
-import codecs
-
-# Fix Windows console encoding issues
-if sys.platform.startswith('win'):
-    # Set up UTF-8 encoding for file handlers, ASCII for console
-    console_handler = logging.StreamHandler()
-    console_handler.setFormatter(logging.Formatter('%(asctime)s - %(levelname)s - %(message)s'))
-    
-    file_handler = logging.FileHandler('xilo.log', encoding='utf-8')
-    file_handler.setFormatter(logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s'))
-    
-    logging.basicConfig(
-        level=logging.INFO,
-        handlers=[file_handler, console_handler]
-    )
-else:
-    logging.basicConfig(
-        level=logging.INFO,
-        format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
-        handlers=[
-            logging.FileHandler('xilo.log', encoding='utf-8'),
-            logging.StreamHandler()
-        ]
-    )
+# Configure logging (AI Playground pattern)
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+    handlers=[
+        logging.FileHandler('xilo.log', encoding='utf-8'),
+        logging.StreamHandler()
+    ]
+)
 
 logger = logging.getLogger(__name__)
 
-# Import detailed logger
-from utils.detailed_logger import xilo_logger, monitor_performance
-
-# Initialize Flask app
-app = Flask(__name__)
+# Initialize APIFlask (AI Playground pattern)
+app = APIFlask(__name__)
 app.config.from_object(Config)
 
-# Global model loading status
-model_loading_status = {
-    'is_loading': False,
-    'is_loaded': False,
-    'error': None
+# Global model status (AI Playground pattern)
+model_status = {
+    'status': 'initializing',  # initializing | ready | error
+    'error': None,
+    'device': None
 }
 
-@monitor_performance(xilo_logger, "model_loading")
-def load_model_async():
-    """Load the Phi 3.5 model asynchronously"""
-    global model_loading_status
+def initialize_model():
+    """Initialize Phi 3.5 model with Intel XPU optimization"""
+    global model_status
     
     try:
-        model_loading_status['is_loading'] = True
-        model_loading_status['error'] = None
-        
-        # Take initial system snapshot
-        xilo_logger.log_system_snapshot("before_model_loading")
-        
-        logger.info("Starting Xilo AI Tutor with Intel GPU acceleration...")
-        xilo_logger.log_model_state("initialization_started")
         logger.info("=" * 60)
+        logger.info("Initializing Xilo AI Tutor with Intel GPU acceleration")
+        logger.info(f"Model: {Config.MODEL_NAME}")
         
-        # Create cache directories
-        Config.create_directories()
+        # Check Intel XPU availability
+        device_info = gpu_manager.get_device_info()
+        logger.info(f"Device: {device_info}")
         
-        # Load the model
+        # Load model
         logger.info("Loading Phi 3.5 model...")
-        xilo_logger.log_model_state("model_loading_started")
         phi_tutor.load_model()
         
-        model_loading_status['is_loaded'] = True
-        model_loading_status['is_loading'] = False
+        model_status['status'] = 'ready'
+        model_status['device'] = device_info
         
-        # Take snapshot after successful loading
-        xilo_logger.log_system_snapshot("after_model_loading")
-        xilo_logger.log_model_state("model_loaded_successfully")
-        
-        logger.info("Xilo AI Tutor ready!")
-        logger.info(f"Access the tutor at: http://{Config.HOST}:{Config.PORT}")
+        logger.info("✅ Xilo AI Tutor ready!")
+        logger.info(f"Access at: http://{Config.HOST}:{Config.PORT}")
         logger.info("=" * 60)
         
     except Exception as e:
-        model_loading_status['is_loading'] = False
-        model_loading_status['error'] = str(e)
-        
-        # Log detailed error information
-        xilo_logger.log_error(e, "model_loading_failed", {
-            'suggested_rollback': 'clear_model_cache',
-            'recovery_steps': [
-                'Check disk space',
-                'Verify internet connection', 
-                'Clear model cache directory',
-                'Restart application'
-            ]
-        })
-        xilo_logger.log_model_state("model_loading_failed", {'error': str(e)})
-        
-        logger.error(f"Error loading model: {e}")
+        model_status['status'] = 'error'
+        model_status['error'] = str(e)
+        logger.error(f"❌ Model initialization failed: {e}")
+        raise
+
+# Routes
 
 @app.route('/')
 def index():
     """Main page"""
     return render_template('index.html')
 
-@app.route('/logs')
-def logs():
-    """Logs and diagnostics page"""
-    return render_template('logs.html')
-
 @app.route('/api/status')
 def status():
-    """Get system and model status"""
+    """Get system status (AI Playground pattern)"""
     try:
-        device_info = gpu_manager.get_device_info()
-        model_info = phi_tutor.get_model_info()
-        
         return jsonify({
-            'status': 'success',
-            'data': {
-                'device': device_info,
-                'model': model_info,
-                'loading_status': model_loading_status
+            "code": 0,
+            "message": "success",
+            "data": {
+                "model_status": model_status,
+                "model_info": phi_tutor.get_model_info() if model_status['status'] == 'ready' else None,
+                "device": gpu_manager.get_device_info()
             }
         })
     except Exception as e:
         logger.error(f"Error getting status: {e}")
-        return jsonify({
-            'status': 'error',
-            'message': str(e)
-        }), 500
+        return jsonify({"code": -1, "message": str(e)}), 500
 
-@app.route('/api/info')
-def info():
-    """Get detailed system information"""
-    try:
-        device_info = gpu_manager.get_device_info()
-        model_info = phi_tutor.get_model_info()
-        
-        return jsonify({
-            'status': 'success',
-            'data': {
-                **model_info,
-                'device': device_info,
-                'config': {
-                    'temperature': Config.TEMPERATURE,
-                    'top_p': Config.TOP_P,
-                    'max_length': Config.MAX_LENGTH
-                }
-            }
-        })
-    except Exception as e:
-        logger.error(f"Error getting info: {e}")
-        return jsonify({
-            'status': 'error',
-            'message': str(e)
-        }), 500
-
-@app.route('/api/chat', methods=['POST'])
-@monitor_performance(xilo_logger, "chat_generation")
+@app.post("/api/chat")
 def chat():
-    """Handle chat messages"""
+    """Handle chat messages (AI Playground pattern with proper error handling)"""
     try:
         data = request.get_json()
         
+        # Validate request
         if not data or 'message' not in data:
             return jsonify({
-                'status': 'error',
-                'message': 'No message provided'
+                "code": -1,
+                "message": "No message provided"
             }), 400
         
         user_message = data['message'].strip()
         if not user_message:
             return jsonify({
-                'status': 'error',
-                'message': 'Empty message'
+                "code": -1,
+                "message": "Empty message"
             }), 400
         
-        # Check if model is loading
-        if model_loading_status['is_loading']:
+        # Check model status
+        if model_status['status'] != 'ready':
             return jsonify({
-                'status': 'error',
-                'message': 'Model is still loading. Please wait a moment and try again.'
+                "code": -1,
+                "message": f"Model not ready: {model_status['status']}"
             }), 503
         
-        # Check if model failed to load
-        if model_loading_status['error']:
-            return jsonify({
-                'status': 'error',
-                'message': f'Model failed to load: {model_loading_status["error"]}'
-            }), 500
-        
-        # Check if model is loaded
-        if not model_loading_status['is_loaded']:
-            return jsonify({
-                'status': 'error',
-                'message': 'Model not loaded yet. Please wait a moment.'
-            }), 503
-        
-        # Get optional parameters
+        # Get parameters
         temperature = data.get('temperature', Config.TEMPERATURE)
-        max_length = data.get('max_length', Config.MAX_LENGTH)
+        max_new_tokens = data.get('max_new_tokens', 512)
         top_p = data.get('top_p', Config.TOP_P)
         
         # Validate parameters
         temperature = max(0.1, min(1.0, float(temperature)))
-        max_length = max(128, min(2048, int(max_length)))
+        max_new_tokens = max(128, min(2048, int(max_new_tokens)))
         top_p = max(0.1, min(1.0, float(top_p)))
         
-        logger.info(f"User message: {user_message[:100]}...")
-        logger.info(f"Settings: temp={temperature}, max_len={max_length}, top_p={top_p}")
-        
-        # Log chat attempt
-        xilo_logger.log_model_state("chat_generation_started", {
-            'message_length': len(user_message),
-            'temperature': temperature,
-            'max_length': max_length
-        })
+        logger.info(f"Chat request: {user_message[:100]}...")
         
         # Generate response
         start_time = time.time()
         response = phi_tutor.generate_response(
             user_message,
-            max_length=max_length,
+            max_new_tokens=max_new_tokens,
             temperature=temperature,
             top_p=top_p
         )
         generation_time = time.time() - start_time
         
-        # Log successful generation
-        xilo_logger.log_model_state("chat_generation_completed", {
-            'generation_time': generation_time,
-            'response_length': len(response)
-        })
-        
         logger.info(f"Response generated in {generation_time:.2f}s")
-        logger.info(f"API Response content: '{response}'")
-        logger.info(f"API Response length: {len(response)} characters")
         
         return jsonify({
-            'status': 'success',
-            'response': response,
-            'metadata': {
-                'generation_time': round(generation_time, 2),
-                'device': gpu_manager.get_device_info()['device'],
-                'settings': {
-                    'temperature': temperature,
-                    'max_length': max_length,
-                    'top_p': top_p
+            "code": 0,
+            "message": "success",
+            "data": {
+                "response": response,
+                "metadata": {
+                    "generation_time": round(generation_time, 2),
+                    "device": model_status['device']['device'],
+                    "tokens_per_second": round(len(response.split()) / generation_time, 2)
                 }
             }
         })
         
     except Exception as e:
-        # Log detailed error
-        xilo_logger.log_error(e, "chat_generation_error", {
-            'user_message_length': len(user_message) if 'user_message' in locals() else 0,
-            'suggested_rollback': 'restart_model',
-            'recovery_steps': [
-                'Check GPU memory',
-                'Clear GPU cache',
-                'Restart model loading',
-                'Check system resources'
-            ]
-        })
-        
-        logger.error(f"Error in chat endpoint: {e}")
+        logger.error(f"Chat error: {e}")
+        import traceback
+        traceback.print_exc()
         return jsonify({
-            'status': 'error',
-            'message': f'Internal server error: {str(e)}'
+            "code": -1,
+            "message": str(e)
         }), 500
 
-@app.route('/api/clear-memory', methods=['POST'])
+@app.post("/api/chat/stream")
+def chat_stream():
+    """Streaming chat endpoint (AI Playground SSE pattern)"""
+    try:
+        data = request.get_json()
+        user_message = data.get('message', '').strip()
+        
+        if not user_message:
+            return jsonify({"code": -1, "message": "Empty message"}), 400
+        
+        if model_status['status'] != 'ready':
+            return jsonify({"code": -1, "message": "Model not ready"}), 503
+        
+        def response_generator():
+            """Generator for streaming response (AI Playground pattern)"""
+            try:
+                # Start generation
+                yield f"data: {json.dumps({'status': 'started', 'message': 'Generating response...'})}\n\n"
+                
+                # Generate response (if your model supports streaming)
+                response = phi_tutor.generate_response(user_message)
+                
+                # Send chunks (simulate streaming if model doesn't support it natively)
+                words = response.split()
+                for i, word in enumerate(words):
+                    chunk_data = {
+                        'status': 'generating',
+                        'chunk': word + ' ',
+                        'progress': (i + 1) / len(words)
+                    }
+                    yield f"data: {json.dumps(chunk_data)}\n\n"
+                    time.sleep(0.05)  # Smooth streaming
+                
+                # Send completion
+                yield f"data: {json.dumps({'status': 'completed', 'full_response': response})}\n\n"
+                
+            except Exception as e:
+                logger.error(f"Streaming error: {e}")
+                yield f"data: {json.dumps({'status': 'error', 'message': str(e)})}\n\n"
+        
+        return Response(
+            stream_with_context(response_generator()),
+            content_type="text/event-stream"
+        )
+        
+    except Exception as e:
+        logger.error(f"Stream setup error: {e}")
+        return jsonify({"code": -1, "message": str(e)}), 500
+
+@app.post("/api/clear-memory")
 def clear_memory():
-    """Clear GPU memory cache"""
+    """Clear GPU memory (AI Playground pattern)"""
     try:
         gpu_manager.clear_memory()
-        xilo_logger.log_system_snapshot("memory_cleared")
         return jsonify({
-            'status': 'success',
-            'message': 'Memory cache cleared'
+            "code": 0,
+            "message": "Memory cleared successfully"
         })
     except Exception as e:
-        xilo_logger.log_error(e, "memory_clear_failed")
-        logger.error(f"Error clearing memory: {e}")
-        return jsonify({
-            'status': 'error',
-            'message': str(e)
-        }), 500
+        logger.error(f"Memory clear error: {e}")
+        return jsonify({"code": -1, "message": str(e)}), 500
 
-@app.route('/api/logs/system')
-def get_system_logs():
-    """Get system snapshots and current state"""
-    try:
-        current_state = xilo_logger.get_current_system_state()
-        recent_snapshots = xilo_logger.system_snapshots[-5:]  # Last 5 snapshots
-        
-        return jsonify({
-            'status': 'success',
-            'data': {
-                'current_state': current_state,
-                'recent_snapshots': recent_snapshots,
-                'total_snapshots': len(xilo_logger.system_snapshots)
-            }
-        })
-    except Exception as e:
-        logger.error(f"Error getting system logs: {e}")
-        return jsonify({
-            'status': 'error',
-            'message': str(e)
-        }), 500
-
-@app.route('/api/logs/errors')
-def get_error_logs():
-    """Get recent error information"""
-    try:
-        recent_errors = xilo_logger.error_history[-10:]  # Last 10 errors
-        
-        return jsonify({
-            'status': 'success',
-            'data': {
-                'recent_errors': recent_errors,
-                'total_errors': len(xilo_logger.error_history)
-            }
-        })
-    except Exception as e:
-        logger.error(f"Error getting error logs: {e}")
-        return jsonify({
-            'status': 'error',
-            'message': str(e)
-        }), 500
-
-@app.route('/api/logs/performance')
-def get_performance_logs():
-    """Get performance metrics"""
-    try:
-        recent_performance = xilo_logger.performance_logs[-20:]  # Last 20 operations
-        
-        # Calculate some basic stats
-        if recent_performance:
-            durations = [p['duration_seconds'] for p in recent_performance]
-            avg_duration = sum(durations) / len(durations)
-            max_duration = max(durations)
-            min_duration = min(durations)
-        else:
-            avg_duration = max_duration = min_duration = 0
-        
-        return jsonify({
-            'status': 'success',
-            'data': {
-                'recent_operations': recent_performance,
-                'stats': {
-                    'total_operations': len(xilo_logger.performance_logs),
-                    'average_duration': round(avg_duration, 3),
-                    'max_duration': round(max_duration, 3),
-                    'min_duration': round(min_duration, 3)
-                }
-            }
-        })
-    except Exception as e:
-        logger.error(f"Error getting performance logs: {e}")
-        return jsonify({
-            'status': 'error',
-            'message': str(e)
-        }), 500
-
-@app.route('/api/logs/model')
-def get_model_logs():
-    """Get model state history"""
-    try:
-        return jsonify({
-            'status': 'success',
-            'data': {
-                'model_states': xilo_logger.model_state_log,
-                'current_status': model_loading_status
-            }
-        })
-    except Exception as e:
-        logger.error(f"Error getting model logs: {e}")
-        return jsonify({
-            'status': 'error',
-            'message': str(e)
-        }), 500
-
-@app.route('/api/rollback-guide')
-def get_rollback_guide():
-    """Generate and return rollback guide"""
-    try:
-        guide = xilo_logger.generate_rollback_guide()
-        guide_file = xilo_logger.save_rollback_guide()
-        
-        return jsonify({
-            'status': 'success',
-            'data': {
-                'guide': guide,
-                'file_path': guide_file,
-                'session_id': xilo_logger.session_id
-            }
-        })
-    except Exception as e:
-        logger.error(f"Error generating rollback guide: {e}")
-        return jsonify({
-            'status': 'error',
-            'message': str(e)
-        }), 500
-
-@app.route('/api/logs/download/<log_type>')
-def download_logs(log_type):
-    """Download specific log files"""
-    try:
-        import os
-        from flask import send_file, abort
-        
-        if log_type not in ['system', 'errors', 'performance', 'model', 'main']:
-            abort(404)
-        
-        if log_type == 'main':
-            file_path = f"logs/xilo_main_{xilo_logger.session_id}.log"
-        else:
-            file_path = f"logs/{log_type}/{log_type}_{xilo_logger.session_id}.log"
-        
-        if os.path.exists(file_path):
-            return send_file(file_path, as_attachment=True)
-        else:
-            abort(404)
-            
-    except Exception as e:
-        logger.error(f"Error downloading logs: {e}")
-        return jsonify({
-            'status': 'error',
-            'message': str(e)
-        }), 500
+# Error handlers (AI Playground pattern)
 
 @app.errorhandler(404)
 def not_found(error):
-    return jsonify({
-        'status': 'error',
-        'message': 'Endpoint not found'
-    }), 404
+    return jsonify({"code": -1, "message": "Endpoint not found"}), 404
 
 @app.errorhandler(500)
 def internal_error(error):
-    return jsonify({
-        'status': 'error',
-        'message': 'Internal server error'
-    }), 500
+    return jsonify({"code": -1, "message": "Internal server error"}), 500
 
 if __name__ == '__main__':
-    # Print startup banner (Windows-compatible)
-    print("""
+    import sys
+    
+    # Only initialize model when NOT running with reloader or when in reloader child process
+    # This prevents double initialization in Flask debug mode
+    is_reloader_child = os.environ.get('WERKZEUG_RUN_MAIN') == 'true'
+    
+    if not Config.DEBUG or is_reloader_child:
+        print("""
     ██╗  ██╗██╗██╗      ██████╗     ██╗   ██╗███████╗
     ╚██╗██╔╝██║██║     ██╔═══██╗    ██║   ██║██╔════╝
      ╚███╔╝ ██║██║     ██║   ██║    ██║   ██║███████╗
@@ -464,24 +258,26 @@ if __name__ == '__main__':
     ██╔╝ ██╗██║███████╗╚██████╔╝    ╚██████╔╝███████║
     ╚═╝  ╚═╝╚═╝╚══════╝ ╚═════╝      ╚═════╝ ╚══════╝
     
-    AI Tutor powered by Intel GPU & Phi 3.5
-    Optimized for XMX engines (Battlemage)
+    AI Tutor powered by Intel Arc GPU & Phi 3.5 (IPEX-LLM)
+    Following AI Playground architecture patterns
     """)
-    
-    print(f"Configuration:")
-    print(f"   Model: {Config.MODEL_NAME}")
-    print(f"   Device: {gpu_manager.device}")
-    print(f"   Intel XPU: {'Available' if gpu_manager.is_available else 'Not Available'}")
-    print(f"   Host: {Config.HOST}:{Config.PORT}")
-    print(f"   Session ID: {xilo_logger.session_id}")
-    print()
-    
-    # Take initial system snapshot
-    xilo_logger.log_system_snapshot("application_startup")
-    
-    # Start model loading in background
-    model_thread = threading.Thread(target=load_model_async, daemon=True)
-    model_thread.start()
+        
+        print(f"\nConfiguration:")
+        print(f"  Model: {Config.MODEL_NAME}")
+        print(f"  Intel XPU: Detecting after model load...")
+        print(f"  Host: {Config.HOST}:{Config.PORT}")
+        print()
+        
+        # Initialize model before starting server (AI Playground pattern)
+        try:
+            initialize_model()
+            # Show GPU info AFTER model loads
+            device_info = gpu_manager.get_device_info()
+            if device_info.get('available'):
+                print(f"\n✅ Intel GPU Ready: {device_info.get('name', 'Unknown')}")
+                print(f"   Memory: {device_info.get('memory_allocated', 'N/A')} allocated")
+        except Exception as e:
+            logger.error("Failed to initialize model, but starting server anyway...")
     
     # Start Flask app
     try:
@@ -492,11 +288,7 @@ if __name__ == '__main__':
             threaded=True
         )
     except KeyboardInterrupt:
-        print("\nXilo AI Tutor shutting down...")
-        xilo_logger.log_system_snapshot("application_shutdown")
-        xilo_logger.save_rollback_guide()
+        print("\n\nXilo AI Tutor shutting down...")
+        gpu_manager.clear_memory()
     except Exception as e:
-        logger.error(f"Error starting server: {e}")
-        xilo_logger.log_error(e, "server_startup_failed")
-        print(f"Failed to start server: {e}")
-        xilo_logger.save_rollback_guide()
+        logger.error(f"Server startup failed: {e}")

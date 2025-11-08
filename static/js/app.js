@@ -74,7 +74,7 @@ class XiloChat {
             const response = await fetch('/api/info');
             const data = await response.json();
             
-            if (data.status === 'success') {
+            if (data.code === 0 && data.data) {
                 this.systemInfo = data.data;
                 console.log('System info loaded:', this.systemInfo);
             }
@@ -90,14 +90,21 @@ class XiloChat {
             
             const statusElement = this.gpuStatus;
             
-            if (data.status === 'success') {
+            if (data.code === 0 && data.data) {
                 const deviceInfo = data.data.device;
+                const modelStatus = data.data.model_status ? data.data.model_status.status : 'unknown';
                 
-                if (deviceInfo.available && deviceInfo.type === 'Intel XPU') {
+                if (modelStatus === 'ready' && deviceInfo.available && deviceInfo.type === 'Intel XPU') {
                     statusElement.className = 'gpu-status';
                     statusElement.innerHTML = `
                         <i class="fas fa-microchip"></i>
-                        <span>Intel GPU Ready</span>
+                        <span>${deviceInfo.name || 'Intel GPU'} Ready</span>
+                    `;
+                } else if (modelStatus === 'loading') {
+                    statusElement.className = 'gpu-status loading';
+                    statusElement.innerHTML = `
+                        <i class="fas fa-spinner fa-spin"></i>
+                        <span>Loading Model...</span>
                     `;
                 } else {
                     statusElement.className = 'gpu-status error';
@@ -161,12 +168,13 @@ class XiloChat {
             const data = await response.json();
             console.log('API Response:', data); // DEBUG
             
-            if (data.status === 'success') {
-                console.log('Adding bot message:', data.response); // DEBUG
-                this.addMessage(data.response, 'bot');
-                this.messageHistory.push({ user: text, bot: data.response });
+            if (data.code === 0 && data.data && data.data.response) {
+                console.log('Adding bot message:', data.data.response); // DEBUG
+                this.addMessage(data.data.response, 'bot');
+                this.messageHistory.push({ user: text, bot: data.data.response });
             } else {
-                this.addMessage(`Sorry, I encountered an error: ${data.message}`, 'bot', true);
+                const errorMsg = data.data && data.data.error ? data.data.error : 'An error occurred';
+                this.addMessage(`Sorry, I encountered an error: ${errorMsg}`, 'bot', true);
             }
             
         } catch (error) {
@@ -289,7 +297,7 @@ function showInfo() {
     fetch('/api/info')
         .then(response => response.json())
         .then(data => {
-            if (data.status === 'success') {
+            if (data.code === 0 && data.data) {
                 modalBody.innerHTML = `
                     <div style="margin-bottom: 1.5rem;">
                         <h4 style="color: var(--text-primary); margin-bottom: 0.5rem;">🤖 Model Information</h4>

@@ -1,14 +1,16 @@
 """
-Phi 3.5 Model wrapper optimized for Intel GPU
-Handles model loading, inference, and Intel XPU acceleration
+Phi 3.5 Model wrapper optimized for Intel Arc GPU
+Follows AI Playground architecture patterns for Intel XPU optimization
+
+CRITICAL: In PyTorch 2.6+xpu, importing torch auto-loads IPEX!
+This conflicts with ipex-llm which needs to load IPEX itself.
+Solution: Import torch locally in methods, not at module level.
 """
 
-import torch
+# DO NOT import torch here - it auto-loads IPEX in PyTorch 2.6!
 import time
-from transformers import AutoModelForCausalLM, AutoTokenizer, TextStreamer
 import logging
 from config import Config
-from utils.intel_gpu import gpu_manager
 
 logger = logging.getLogger(__name__)
 
@@ -16,19 +18,112 @@ class PhiTutor:
     def __init__(self):
         self.model = None
         self.tokenizer = None
-        self.device = gpu_manager.get_device()
+        self.device = None  # Defer device detection to avoid import hang with PyTorch 2.1.0a0
         self.is_loaded = False
         
+    def     _detect_intel_device(self):
+        """
+        Detect Intel XPU device availability.
+        WARNING: In PyTorch 2.6, calling torch.xpu.is_available() auto-imports IPEX!
+        This must only be called AFTER ipex-llm has loaded the model.
+        For now, just return 'xpu' and let ipex-llm handle detection.
+        """
+        # Don't call torch.xpu.is_available() here - it auto-imports IPEX in PyTorch 2.6!
+        # ipex-llm will auto-detect and use XPU if available
+        return 'xpu'  # Let ipex-llm handle the actual detection
+        
     def load_model(self):
-        """Load Phi 3.5 model with Intel GPU optimization"""
+        """Load Phi 3.5 model with Intel XPU optimization"""
+        # CORRECT ORDER for PyTorch 2.6 + ipex-llm (from official docs):
+        # 1. Import torch first
+        # 2. Then import ipex_llm
+        
+        # DEBUG: Check module state at start
+        import sys
+        print(f"[DEBUG] load_model() START - torch loaded: {'torch' in sys.modules}, IPEX loaded: {'intel_extension_for_pytorch' in sys.modules}")
+        
+        # Import torch FIRST (official ipex-llm pattern for PyTorch 2.6)
+        import torch
+        print(f"[DEBUG] After torch import - torch loaded: {'torch' in sys.modules}, IPEX loaded: {'intel_extension_for_pytorch' in sys.modules}")
+        
         try:
+            # Detect device now (safe after import completes)
+            if self.device is None:
+                self.device = self._detect_intel_device()
+            
+            print(f"[DEBUG] After _detect_intel_device() - torch loaded: {'torch' in sys.modules}, IPEX loaded: {'intel_extension_for_pytorch' in sys.modules}")
+            
             logger.info(f"Loading Phi 3.5 model: {Config.MODEL_NAME}")
             logger.info(f"Target device: {self.device}")
             
-            # Create cache directory
             Config.create_directories()
             
-            # Load tokenizer
+            print(f"[DEBUG] After create_directories() - torch loaded: {'torch' in sys.modules}, IPEX loaded: {'intel_extension_for_pytorch' in sys.modules}")
+            
+            # Load model FIRST (following official ipex-llm PyTorch 2.6 pattern)
+            if self.device == 'xpu':
+                # Intel Arc GPU - use IPEX-LLM (AI Playground pattern)
+                logger.info("Loading with Intel IPEX-LLM optimization...")
+                
+                print(f"[DEBUG] BEFORE ipex_llm import - IPEX loaded: {'intel_extension_for_pytorch' in sys.modules}")
+                
+                # Import ipex_llm AFTER torch (official pattern for PyTorch 2.6)
+                from ipex_llm.transformers import AutoModelForCausalLM
+                
+                print(f"[DEBUG] AFTER ipex_llm import - IPEX loaded: {'intel_extension_for_pytorch' in sys.modules}")
+                
+                # Pre-download model with standard transformers to cache all files
+                from transformers import AutoTokenizer
+                logger.info("Pre-downloading model files to cache...")
+                print(f"[DEBUG] Downloading to cache: {Config.MODEL_CACHE_DIR}")
+                AutoTokenizer.from_pretrained(
+                    Config.MODEL_NAME,
+                    cache_dir=Config.MODEL_CACHE_DIR,
+                    trust_remote_code=True
+                )
+                logger.info("✅ Model files cached")
+                
+                # Now load with ipex-llm from cached files
+                logger.info("Loading model with IPEX-LLM 4-bit quantization...")
+                print(f"[DEBUG] Loading model: {Config.MODEL_NAME}")
+                
+                try:
+                    self.model = AutoModelForCausalLM.from_pretrained(
+                        Config.MODEL_NAME,
+                        load_in_4bit=True,          # 4-bit quantization for Intel GPU
+                        trust_remote_code=True,
+                        attn_implementation='eager',  # Use eager attention to avoid DynamicCache issues
+                        cache_dir=Config.MODEL_CACHE_DIR  # Use cached files
+                    )
+                    print(f"[DEBUG] Model loaded successfully!")
+                except Exception as e:
+                    print(f"[DEBUG] Model loading error: {type(e).__name__}: {e}")
+                    import traceback
+                    traceback.print_exc()
+                    raise
+                
+                self.model = self.model.to('xpu')
+                logger.info("✅ Model loaded with Intel XPU 4-bit optimization")
+                logger.info(f"XPU Memory: {torch.xpu.memory_allocated(0) / 1024**3:.2f} GB")
+                
+            else:
+                # CPU fallback
+                import torch  # Safe to import here for CPU path
+                logger.info("Loading with CPU (standard transformers)...")
+                from transformers import AutoModelForCausalLM
+                
+                self.model = AutoModelForCausalLM.from_pretrained(
+                    Config.MODEL_NAME,
+                    cache_dir=Config.MODEL_CACHE_DIR,
+                    torch_dtype=torch.float32,
+                    trust_remote_code=True,
+                    low_cpu_mem_usage=True
+                )
+                self.model = self.model.to('cpu')
+                logger.info("✅ Model loaded on CPU")
+            
+            # Load tokenizer AFTER model (now safe - IPEX already loaded by ipex-llm)
+            from transformers import AutoTokenizer
             logger.info("Loading tokenizer...")
             self.tokenizer = AutoTokenizer.from_pretrained(
                 Config.MODEL_NAME,
@@ -36,53 +131,30 @@ class PhiTutor:
                 trust_remote_code=True
             )
             
-            # Set padding token
             if self.tokenizer.pad_token is None:
                 self.tokenizer.pad_token = self.tokenizer.eos_token
             
-            # Load model with restricted context window
-            logger.info("Loading model...")
-            from transformers import AutoConfig
-            config = AutoConfig.from_pretrained(Config.MODEL_NAME, trust_remote_code=True)
-            config.max_position_embeddings = 4096  # Reduce from 128K to 4K
-            logger.info(f"Restricting context window to {config.max_position_embeddings} tokens")
-            
-            self.model = AutoModelForCausalLM.from_pretrained(
-                Config.MODEL_NAME,
-                config=config,
-                cache_dir=Config.MODEL_CACHE_DIR,
-                torch_dtype=torch.float16 if gpu_manager.is_available else torch.float32,
-                trust_remote_code=True,
-                device_map="auto" if not gpu_manager.is_available else None
-            )
-            
-            # Apply Intel GPU optimizations
-            if gpu_manager.is_available:
-                logger.info("Applying Intel XPU optimizations...")
-                self.model = gpu_manager.optimize_model(self.model)
-            else:
-                logger.info("Moving model to CPU...")
-                self.model = self.model.to(self.device)
-            
-            # Set model to evaluation mode
             self.model.eval()
-            
             self.is_loaded = True
-            logger.info("✅ Phi 3.5 model loaded successfully!")
             
-            # Log device info
-            device_info = gpu_manager.get_device_info()
-            logger.info(f"Device info: {device_info}")
+            # NOW it's safe to initialize GPU utilities - ipex-llm has imported IPEX
+            if self.device == 'xpu':
+                from utils.intel_gpu import gpu_manager
+                gpu_manager.post_model_load_setup()
+                logger.info("✅ GPU utilities initialized post-model-load")
             
+        except ImportError as e:
+            logger.error(f"❌ Missing required package: {e}")
+            logger.error("Install: pip install --pre --upgrade ipex-llm[xpu] --extra-index-url https://pytorch-extension.intel.com/release-whl/stable/xpu/us/")
+            raise
         except Exception as e:
             logger.error(f"❌ Error loading model: {e}")
-            self.is_loaded = False
-            raise e
+            raise
     
     def format_prompt(self, user_message, system_message=None):
         """Format message for Phi 3.5 chat template"""
         if system_message is None:
-            system_message = """You are Xilo AI, an intelligent AI tutor made with Microsoft Phi 3.5 and optimized for Intel GPU. Your role is to:
+            system_message = """You are Xilo AI, an intelligent AI tutor made with Microsoft Phi 3.5 and optimized for Intel Arc GPU. Your role is to:
             
 1. Provide clear, educational explanations
 2. Break down complex topics into understandable parts
@@ -104,95 +176,85 @@ When introducing yourself, say "I am Xilo AI, made with Phi 3.5" rather than ide
             add_generation_prompt=True
         )
     
-    def generate_response(self, user_message, max_length=None, temperature=None, top_p=None):
-        """Generate AI tutor response"""
-        logger.info("🔄 generate_response called")
+    def generate_response(self, user_message, max_new_tokens=512, temperature=0.7, top_p=0.9):
+        """Generate AI tutor response with Intel XPU acceleration"""
+        # Import torch locally
+        import torch
         
         if not self.is_loaded:
-            logger.error("❌ Model not loaded!")
             return "Error: Model not loaded. Please wait while the model initializes."
         
-        logger.info("✅ Model is loaded, proceeding...")
-        
         try:
-            # Set parameters
-            max_length = max_length or Config.MAX_LENGTH
-            temperature = temperature or Config.TEMPERATURE
-            top_p = top_p or Config.TOP_P
-            
-            logger.info(f"📊 Parameters set: max_len={max_length}, temp={temperature}, top_p={top_p}")
-            
             # Format prompt
-            logger.info("🔤 Starting prompt formatting...")
             prompt = self.format_prompt(user_message)
-            logger.info(f"✅ Formatted prompt length: {len(prompt)} chars")
             
-            # Tokenize input
+            # Tokenize (limit input to prevent OOM)
             inputs = self.tokenizer(
                 prompt, 
                 return_tensors="pt", 
                 truncation=True, 
-                max_length=max_length//2
+                max_length=3072  # Leave room for response
             ).to(self.device)
             
-            logger.info(f"Input tokens shape: {inputs['input_ids'].shape}")
-            logger.info(f"Input device: {inputs['input_ids'].device}")
-            logger.info(f"Model device: {next(self.model.parameters()).device}")
+            logger.info(f"Input tokens: {inputs['input_ids'].shape[1]}")
             
-            # Generate response
+            # Generate with Intel XPU optimization
+            start_time = time.time()
+            
             with torch.no_grad():
-                logger.info("Starting model generation...")
-                logger.info(f"Generation params: max_new_tokens={min(512, max_length//4)}, do_sample=False")
-                
-                start_time = time.time()
                 outputs = self.model.generate(
                     **inputs,
-                    max_new_tokens=64,  # Much smaller for testing - only 64 tokens
-                    do_sample=False,  # Use greedy decoding - no temperature needed
+                    max_new_tokens=max_new_tokens,
+                    do_sample=True,
+                    temperature=temperature,
+                    top_p=top_p,
+                    repetition_penalty=1.1,
                     pad_token_id=self.tokenizer.eos_token_id,
-                    eos_token_id=self.tokenizer.eos_token_id,
-                    use_cache=True,
-                    num_beams=1  # Single beam for simplicity
+                    eos_token_id=self.tokenizer.eos_token_id
+                    # use_cache removed - compatibility issue with transformers 4.49.0
                 )
-                end_time = time.time()
-                logger.info(f"✅ Model generation completed in {end_time - start_time:.2f} seconds!")
-                logger.info(f"Output shape: {outputs.shape}")
+            
+            generation_time = time.time() - start_time
+            tokens_generated = outputs.shape[1] - inputs['input_ids'].shape[1]
             
             # Decode response
             response = self.tokenizer.decode(
                 outputs[0][inputs['input_ids'].shape[1]:], 
                 skip_special_tokens=True
             )
-            logger.info(f"Raw generated tokens: {outputs[0][inputs['input_ids'].shape[1]:]}")
-            logger.info(f"Decoded response length: {len(response)} chars")
-            logger.info(f"Decoded response content: '{response}'")
+            
+            logger.info(f"Generated {tokens_generated} tokens in {generation_time:.2f}s ({tokens_generated/generation_time:.2f} tok/s)")
             
             # Clean up memory
             del inputs, outputs
-            gpu_manager.clear_memory()
+            if self.device == 'xpu':
+                torch.xpu.empty_cache()
             
-            final_response = response.strip()
-            logger.info(f"Final cleaned response: '{final_response}'")
-            return final_response
+            return response.strip()
             
         except Exception as e:
             logger.error(f"Error generating response: {e}")
-            return f"Sorry, I encountered an error while generating a response: {str(e)}"
+            return f"Sorry, I encountered an error: {str(e)}"
     
     def get_model_info(self):
         """Get model information"""
         if not self.is_loaded:
             return {"status": "not_loaded", "model": Config.MODEL_NAME}
         
-        device_info = gpu_manager.get_device_info()
-        
-        return {
+        info = {
             "status": "loaded",
             "model": Config.MODEL_NAME,
-            "device": device_info,
-            "tokenizer_vocab_size": len(self.tokenizer),
-            "max_length": Config.MAX_LENGTH
+            "device": str(self.device),
+            "tokenizer_vocab_size": len(self.tokenizer)
         }
+        
+        if self.device == 'xpu':
+            # Import torch locally
+            import torch
+            info["xpu_name"] = torch.xpu.get_device_name(0)
+            info["xpu_memory_allocated_gb"] = torch.xpu.memory_allocated(0) / 1024**3
+        
+        return info
 
 # Global model instance
 phi_tutor = PhiTutor()
