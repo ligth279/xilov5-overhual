@@ -154,16 +154,12 @@ class PhiTutor:
     def format_prompt(self, user_message, system_message=None):
         """Format message for Phi 3.5 chat template"""
         if system_message is None:
-            system_message = """You are Xilo AI, an intelligent AI tutor made with Microsoft Phi 3.5 and optimized for Intel Arc GPU. Your role is to:
-            
-1. Provide clear, educational explanations
-2. Break down complex topics into understandable parts
-3. Use examples and analogies when helpful
-4. Encourage learning and critical thinking
-5. Ask follow-up questions to deepen understanding
-6. Be patient and supportive
+            system_message = """You are Xilo, a helpful AI tutor.
 
-When introducing yourself, say "I am Xilo AI, made with Phi 3.5" rather than identifying as Phi directly. Always aim to teach rather than just provide answers. Make learning engaging and interactive."""
+When user says "hello" or greets you: Reply with ONE sentence like "Hello! How can I help you?" then STOP.
+When explaining concepts: Use plain readable language, not LaTeX code.
+Write equations simply: "E = mc²" or "flux equals Q divided by epsilon zero"
+Answer the question directly, then stop writing."""
 
         messages = [
             {"role": "system", "content": system_message},
@@ -185,6 +181,24 @@ When introducing yourself, say "I am Xilo AI, made with Phi 3.5" rather than ide
             return "Error: Model not loaded. Please wait while the model initializes."
         
         try:
+            # Smart token limiting based on question complexity
+            question_words = len(user_message.strip().split())
+            question_lower = user_message.lower().strip()
+            
+            # Detect greetings and simple responses
+            greetings = ['hello', 'hi', 'hey', 'thanks', 'thank you', 'bye', 'goodbye']
+            if any(greeting in question_lower for greeting in greetings) and question_words <= 5:
+                max_new_tokens = 80  # Short response for greetings
+                temperature = 0.3    # Lower temperature = more focused/less rambling
+            elif question_words <= 10:  # Short questions
+                max_new_tokens = min(max_new_tokens, 200)
+                temperature = 0.5
+            elif question_words <= 25:  # Medium questions
+                max_new_tokens = min(max_new_tokens, 400)
+            # else: use provided max_new_tokens for detailed questions
+            
+            logger.info(f"Question words: {question_words}, Max tokens: {max_new_tokens}")
+            
             # Format prompt
             prompt = self.format_prompt(user_message)
             
