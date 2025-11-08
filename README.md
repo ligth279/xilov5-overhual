@@ -1,8 +1,14 @@
 # Xilo AI Tutor - Large v5 Overhaul
 
-**Version 5.00.00**
+**Version 5.0.10**
+
 
 An advanced AI tutoring system powered by Microsoft Phi 3.5 Mini model, optimized for Intel GPU with XMX engines acceleration.
+
+## Branches
+
+**main**: Stable production branch
+**latest**: Latest working fixes, Intel Arc B580, transformers 4.45.0, ipex-llm, frontend bugfixes
 
 ## 🚀 Features
 
@@ -165,13 +171,17 @@ python -c "import torch; print('XPU available:', torch.xpu.is_available())"
 
 ## 📈 Version History
 
-### v5.00.00 - Large Overhaul (Current)
-- ✅ Complete Intel XPU optimization
-- ✅ Phi 3.5 Mini model integration
-- ✅ Web interface redesign
-- ✅ Performance monitoring dashboard
-- ✅ Memory management improvements
-- ✅ Response formatting fixes
+### v5.0.10 - Latest Branch
+	- ✅ Complete Intel XPU optimization
+	- ✅ Phi 3.5 Mini model integration
+	- ✅ Web interface redesign
+	- ✅ Performance monitoring dashboard
+	- ✅ Memory management improvements
+	- ✅ Response formatting fixes
+	- ✅ Intel Arc B580 GPU support
+	- ✅ transformers 4.45.0 compatibility
+	- ✅ ipex-llm 2.3.0b20251027
+	- ✅ Frontend bugfixes (GPU status, chat)
 
 ## 🔒 License & Copyright
 
