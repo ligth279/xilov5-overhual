@@ -1,6 +1,6 @@
 # Xilo AI Tutor - Large v5 Overhaul
 
-**Version 5.0.10**
+**Version 5.02.00**
 
 
 An advanced AI tutoring system powered by Microsoft Phi 3.5 Mini model, optimized for Intel GPU with XMX engines acceleration.
@@ -97,8 +97,8 @@ http://localhost:5000
 
 ### Intel Arc B580 Performance
 - **Model Loading**: ~15-20 seconds
-- **Memory Usage**: 7.12GB GPU memory
-- **Generation Speed**: 38-49 seconds per response
+- **Memory Usage**: Reduced VRAM usage to 6.5GB GPU memory
+- **Generation Speed**: Increased response time to 10-80 seconds per response
 - **Max Tokens**: 512 tokens per response
 - **Concurrent Users**: Single user optimized
 
@@ -171,7 +171,11 @@ python -c "import torch; print('XPU available:', torch.xpu.is_available())"
 
 ## 📈 Version History
 
-### v5.0.10 - Latest Branch
+### v5.0.15 - Latest Branch
+	- ✅ Reduced VRAM usage to 6.5GB
+	- ✅ Increased response time to 30-40 seconds
+
+### v5.0.10 - Previous Branch
 	- ✅ Complete Intel XPU optimization
 	- ✅ Phi 3.5 Mini model integration
 	- ✅ Web interface redesign

@@ -468,6 +468,29 @@ kbd {
     font-size: 0.875rem;
 }
 
+.setting-item select {
+    width: 100%;
+    padding: 0.5rem;
+    border: 2px solid var(--border-color);
+    border-radius: 0.5rem;
+    background: var(--background-primary);
+    color: var(--text-primary);
+    font-size: 0.875rem;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.setting-item select:hover {
+    border-color: var(--accent-color);
+}
+
+.setting-item select:focus {
+    outline: none;
+    border-color: var(--accent-color);
+    box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+}
+
 .setting-item input[type="range"] {
     width: 100%;
     margin-bottom: 0.25rem;

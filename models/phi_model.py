@@ -151,20 +151,29 @@ class PhiTutor:
             logger.error(f"❌ Error loading model: {e}")
             raise
     
-    def format_prompt(self, user_message, system_message=None):
-        """Format message for Phi 3.5 chat template"""
+    def format_prompt(self, user_message, system_message=None, conversation_history=None, language_code='en'):
+        """
+        Format message for Phi 3.5 chat template with optional conversation history.
+        
+        Args:
+            user_message (str): Current user message
+            system_message (str, optional): System prompt (will be overridden by language-specific prompt)
+            conversation_history (list, optional): List of previous message dicts
+            language_code (str, optional): Language code for system prompt
+        """
+        # Get language-specific system prompt if no custom system message provided
         if system_message is None:
-            system_message = """You are Xilo, a helpful AI tutor.
+            from utils.language_support import language_manager
+            system_message = language_manager.get_system_prompt(language_code)
 
-When user says "hello" or greets you: Reply with ONE sentence like "Hello! How can I help you?" then STOP.
-When explaining concepts: Use plain readable language, not LaTeX code.
-Write equations simply: "E = mc²" or "flux equals Q divided by epsilon zero"
-Answer the question directly, then stop writing."""
-
-        messages = [
-            {"role": "system", "content": system_message},
-            {"role": "user", "content": user_message}
-        ]
+        messages = [{"role": "system", "content": system_message}]
+        
+        # Add conversation history if provided (last 3 Q&A pairs)
+        if conversation_history:
+            messages.extend(conversation_history)
+        
+        # Add current user message
+        messages.append({"role": "user", "content": user_message})
         
         return self.tokenizer.apply_chat_template(
             messages, 
@@ -172,8 +181,18 @@ Answer the question directly, then stop writing."""
             add_generation_prompt=True
         )
     
-    def generate_response(self, user_message, max_new_tokens=512, temperature=0.7, top_p=0.9):
-        """Generate AI tutor response with Intel XPU acceleration"""
+    def generate_response(self, user_message, max_new_tokens=768, temperature=0.7, top_p=0.9, conversation_history=None, language_code='en'):
+        """
+        Generate AI tutor response with Intel XPU acceleration.
+        
+        Args:
+            user_message (str): Current user message
+            max_new_tokens (int): Maximum tokens to generate
+            temperature (float): Sampling temperature
+            top_p (float): Nucleus sampling parameter
+            conversation_history (list, optional): Previous conversation context
+            language_code (str, optional): Language code for response
+        """
         # Import torch locally
         import torch
         
@@ -185,22 +204,48 @@ Answer the question directly, then stop writing."""
             question_words = len(user_message.strip().split())
             question_lower = user_message.lower().strip()
             
-            # Detect greetings and simple responses
+            # Detect greetings and simple responses - FORCE LOW TEMPERATURE
             greetings = ['hello', 'hi', 'hey', 'thanks', 'thank you', 'bye', 'goodbye']
+            simple_math = any(op in question_lower for op in ['+', '-', '*', '/', 'plus', 'minus', 'times', 'divided'])
+            asks_explanation = any(word in question_lower for word in ['explain', 'how', 'why', 'tell me', 'describe', 'what is', 'show me'])
+            
             if any(greeting in question_lower for greeting in greetings) and question_words <= 5:
-                max_new_tokens = 80  # Short response for greetings
-                temperature = 0.3    # Lower temperature = more focused/less rambling
+                max_new_tokens = 50   # Very short for greetings
+                temperature = 0.1     # Almost deterministic = no rambling
+            elif simple_math and question_words <= 15:  # Simple math questions
+                max_new_tokens = 50   # Very short answers
+                temperature = 0.1     # Almost deterministic
             elif question_words <= 10:  # Short questions
                 max_new_tokens = min(max_new_tokens, 200)
-                temperature = 0.5
+                temperature = 0.3     # Low temperature for focused answers
             elif question_words <= 25:  # Medium questions
                 max_new_tokens = min(max_new_tokens, 400)
-            # else: use provided max_new_tokens for detailed questions
+                temperature = 0.5
+            else:  # Complex/hard questions (25+ words) - allow detailed explanations
+                max_new_tokens = min(max_new_tokens, 1024)  # Allow longer explanations
+                temperature = min(temperature, 0.7)  # Use user's temperature but cap at 0.7
             
             logger.info(f"Question words: {question_words}, Max tokens: {max_new_tokens}")
+            if conversation_history:
+                logger.info(f"Using conversation history: {len(conversation_history)//2} previous Q&A pairs")
             
-            # Format prompt
-            prompt = self.format_prompt(user_message)
+            # For simple, one-off questions, treat them as fresh instructions by ignoring history
+            # BUT keep history if asking for explanation (needs context for "that", "it", etc.)
+            final_conversation_history = conversation_history
+            
+            # Only ignore history if it's truly standalone (not an explanation request)
+            if (simple_math and not asks_explanation) or (any(g in question_lower for g in greetings) and question_words <= 5):
+                # Check if there's recent history - if yes, might be a follow-up
+                if conversation_history and len(conversation_history) > 0:
+                    # Has history - might be "explain that" or similar, so keep history
+                    logger.info("Simple question with history detected - keeping context in case it's a follow-up")
+                else:
+                    # No history - definitely standalone, treat as direct instruction
+                    final_conversation_history = None
+                    logger.info("Standalone simple question - treating as direct instruction (no history)")
+            
+            # Format prompt with conversation history and language
+            prompt = self.format_prompt(user_message, conversation_history=final_conversation_history, language_code=language_code)
             
             # Tokenize (limit input to prevent OOM)
             inputs = self.tokenizer(
@@ -235,7 +280,27 @@ Answer the question directly, then stop writing."""
             response = self.tokenizer.decode(
                 outputs[0][inputs['input_ids'].shape[1]:], 
                 skip_special_tokens=True
-            )
+            ).strip()
+            
+            # Post-process: truncate rambling ONLY for simple questions (not explanations)
+            asks_explanation = any(word in question_lower for word in ['explain', 'how', 'why', 'tell me', 'describe', 'what is', 'show me'])
+            
+            # Only truncate if it's truly a simple question with no explanation request
+            if not asks_explanation:
+                if simple_math and question_words <= 10:
+                    # Simple math with no explanation - truncate aggressively
+                    sentences = response.split('.')
+                    if len(sentences) > 1 and len(sentences[0]) < 100:
+                        response = sentences[0] + '.'
+                    if '\n' in response:
+                        response = response.split('\n')[0].strip()
+                elif any(g in question_lower for g in greetings) and question_words <= 5:
+                    # Greetings - truncate to first sentence
+                    sentences = response.split('.')
+                    if len(sentences) > 1 and len(sentences[0]) < 100:
+                        response = sentences[0] + '.'
+                    if '\n' in response:
+                        response = response.split('\n')[0].strip()
             
             logger.info(f"Generated {tokens_generated} tokens in {generation_time:.2f}s ({tokens_generated/generation_time:.2f} tok/s)")
             

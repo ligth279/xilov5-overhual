@@ -3,7 +3,7 @@ import os
 class Config:
     # Model configuration
     MODEL_NAME = "microsoft/Phi-3.5-mini-instruct"
-    MAX_LENGTH = 2048
+    MAX_LENGTH = 3072  # Increased for better educational content
     TEMPERATURE = 0.7
     TOP_P = 0.9
     
@@ -15,7 +15,7 @@ class Config:
     # Flask configuration
     HOST = "localhost"
     PORT = 5000
-    DEBUG = True
+    DEBUG = False  # Disabled to prevent auto-reload (model takes ~1min to load)
     
     # Paths
     MODEL_CACHE_DIR = "./models_cache"

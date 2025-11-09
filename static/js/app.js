@@ -12,6 +12,8 @@ class XiloChat {
         
         this.isLoading = false;
         this.messageHistory = [];
+        this.currentLanguage = 'en';  // Default language
+        this.translationMode = 'google';  // Default to google translate (more accurate)
         
         this.init();
     }
@@ -161,7 +163,10 @@ class XiloChat {
                 body: JSON.stringify({
                     message: text,
                     temperature: temperature,
-                    max_length: maxLength
+                    max_length: maxLength,
+                    language: this.translationMode === 'direct' ? this.currentLanguage : 'en',  // Only pass language if direct mode
+                    translation_mode: this.translationMode,
+                    target_language: this.currentLanguage
                 })
             });
             
@@ -277,6 +282,94 @@ class XiloChat {
         a.click();
         
         URL.revokeObjectURL(url);
+    }
+    
+    async changeLanguage(languageCode) {
+        this.currentLanguage = languageCode;
+        console.log(`Language changed to: ${languageCode}`);
+        
+        // Clear chat memory on language change to avoid confusion
+        try {
+            await fetch('/api/clear-chat', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({})
+            });
+            console.log('Chat memory cleared for language change');
+        } catch (error) {
+            console.error('Error clearing chat memory:', error);
+        }
+        
+        // Show notification
+        const languageNames = {
+            'en': 'English',
+            'es': 'Español',
+            'fr': 'Français',
+            'de': 'Deutsch',
+            'it': 'Italiano',
+            'pt': 'Português',
+            'zh': '中文',
+            'ja': '日本語',
+            'ko': '한국어',
+            'ar': 'العربية',
+            'hi': 'हिन्दी',
+            'ru': 'Русский',
+            'ml': 'മലയാളം'
+        };
+        
+        const languageName = languageNames[languageCode] || languageCode;
+        this.addMessage(`Language changed to ${languageName}. I'll respond in ${languageName} now!`, 'bot');
+    }
+    
+    changeTranslationMode(mode) {
+        this.translationMode = mode;
+        console.log(`Translation mode changed to: ${mode}`);
+        
+        const modeNames = {
+            'direct': 'Direct AI (Beta)',
+            'google': 'Google Translate'
+        };
+        
+        const modeName = modeNames[mode] || mode;
+        this.addMessage(`Translation mode: ${modeName}`, 'bot');
+    }
+    
+    async clearChatHistory() {
+        if (!confirm('Clear chat history? This will reset the conversation context.')) {
+            return;
+        }
+        
+        try {
+            const response = await fetch('/api/clear-chat', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({})
+            });
+            
+            const data = await response.json();
+            
+            if (data.code === 0) {
+                // Clear local history
+                this.messageHistory = [];
+                
+                // Clear chat messages display
+                const messages = this.chatMessages.querySelectorAll('.message');
+                messages.forEach(msg => msg.remove());
+                
+                // Add confirmation message
+                this.addMessage('Chat history cleared! Starting fresh conversation.', 'bot');
+                
+                console.log('Chat history cleared successfully');
+            } else {
+                console.error('Error clearing chat:', data.message);
+            }
+        } catch (error) {
+            console.error('Error clearing chat history:', error);
+        }
     }
 }
 

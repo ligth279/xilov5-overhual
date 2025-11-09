@@ -19,6 +19,8 @@ from pathlib import Path
 from config import Config
 from models.phi_model import phi_tutor
 from utils.intel_gpu import gpu_manager
+from utils.chat_memory import chat_memory
+from utils.language_support import language_manager
 
 # Configure logging (AI Playground pattern)
 logging.basicConfig(
@@ -90,7 +92,9 @@ def status():
             "data": {
                 "model_status": model_status,
                 "model_info": phi_tutor.get_model_info() if model_status['status'] == 'ready' else None,
-                "device": gpu_manager.get_device_info()
+                "device": gpu_manager.get_device_info(),
+                "active_sessions": chat_memory.get_session_count(),
+                "supported_languages": language_manager.get_supported_languages()
             }
         })
     except Exception as e:
@@ -124,6 +128,25 @@ def chat():
                 "message": f"Model not ready: {model_status['status']}"
             }), 503
         
+        # Get session ID (use IP address as simple session identifier for now)
+        # In future, this can be replaced with proper session tokens
+        session_id = data.get('session_id', request.remote_addr)
+        
+        # Get language preference (auto-detect or use specified)
+        translation_mode = data.get('translation_mode', 'google')  # 'direct' or 'google'
+        target_language = data.get('target_language', 'en')
+        language_code = data.get('language', 'en')
+        
+        # If using Google Translate mode, always generate in English
+        if translation_mode == 'google':
+            language_code = 'en'
+        elif not language_manager.is_supported(language_code):
+            # Try to detect from message if invalid language code (for direct mode)
+            detected_lang = language_manager.detect_language(user_message)
+            language_code = detected_lang if detected_lang else 'en'
+        
+        logger.info(f"Translation mode: {translation_mode}, Target language: {target_language}, AI language: {language_code}")
+        
         # Get parameters
         temperature = data.get('temperature', Config.TEMPERATURE)
         max_new_tokens = data.get('max_new_tokens', 512)
@@ -134,17 +157,38 @@ def chat():
         max_new_tokens = max(128, min(2048, int(max_new_tokens)))
         top_p = max(0.1, min(1.0, float(top_p)))
         
-        logger.info(f"Chat request: {user_message[:100]}...")
+        logger.info(f"Chat request from session {session_id}: {user_message[:100]}...")
         
-        # Generate response
+        # Get conversation history (last 3 Q&A pairs)
+        conversation_history = chat_memory.get_context_messages(session_id)
+        
+        # Generate response with conversation context and language
         start_time = time.time()
         response = phi_tutor.generate_response(
             user_message,
             max_new_tokens=max_new_tokens,
             temperature=temperature,
-            top_p=top_p
+            top_p=top_p,
+            conversation_history=conversation_history,
+            language_code=language_code
         )
         generation_time = time.time() - start_time
+        
+        # Save to chat memory for future context
+        chat_memory.add_message(session_id, user_message, response)
+        
+        # Translate response if using Google Translate mode
+        final_response = response
+        if translation_mode == 'google' and target_language != 'en':
+            try:
+                from deep_translator import GoogleTranslator
+                translator = GoogleTranslator(source='en', target=target_language)
+                final_response = translator.translate(response)
+                logger.info(f"Translated response to {target_language}")
+            except Exception as e:
+                logger.error(f"Translation error: {e}")
+                # Fall back to original response if translation fails
+                final_response = response
         
         logger.info(f"Response generated in {generation_time:.2f}s")
         
@@ -152,11 +196,15 @@ def chat():
             "code": 0,
             "message": "success",
             "data": {
-                "response": response,
+                "response": final_response,
                 "metadata": {
                     "generation_time": round(generation_time, 2),
                     "device": model_status['device']['device'],
-                    "tokens_per_second": round(len(response.split()) / generation_time, 2)
+                    "tokens_per_second": round(len(response.split()) / generation_time, 2),
+                    "conversation_length": len(conversation_history) // 2,
+                    "language": language_code,
+                    "translation_mode": translation_mode,
+                    "target_language": target_language
                 }
             }
         })
@@ -230,6 +278,73 @@ def clear_memory():
         })
     except Exception as e:
         logger.error(f"Memory clear error: {e}")
+        return jsonify({"code": -1, "message": str(e)}), 500
+
+@app.route('/api/languages')
+def get_languages():
+    """Get list of supported languages"""
+    try:
+        return jsonify({
+            "code": 0,
+            "message": "success",
+            "data": {
+                "languages": language_manager.get_supported_languages()
+            }
+        })
+    except Exception as e:
+        logger.error(f"Error getting languages: {e}")
+        return jsonify({"code": -1, "message": str(e)}), 500
+
+@app.post("/api/clear-session")
+def clear_session():
+    """Clear chat history for a session"""
+    try:
+        data = request.get_json()
+        session_id = data.get('session_id', request.remote_addr)
+        chat_memory.clear_session(session_id)
+        return jsonify({
+            "code": 0,
+            "message": "Session cleared successfully"
+        })
+    except Exception as e:
+        logger.error(f"Session clear error: {e}")
+        return jsonify({"code": -1, "message": str(e)}), 500
+
+@app.post("/api/clear-chat")
+def clear_chat():
+    """Clear chat history for a session"""
+    try:
+        data = request.get_json()
+        session_id = data.get('session_id', request.remote_addr)
+        
+        chat_memory.clear_session(session_id)
+        
+        return jsonify({
+            "code": 0,
+            "message": f"Chat history cleared for session {session_id}"
+        })
+    except Exception as e:
+        logger.error(f"Chat clear error: {e}")
+        return jsonify({"code": -1, "message": str(e)}), 500
+
+@app.get("/api/chat-history")
+def get_chat_history():
+    """Get chat history for current session"""
+    try:
+        session_id = request.args.get('session_id', request.remote_addr)
+        history = chat_memory.get_history(session_id)
+        
+        return jsonify({
+            "code": 0,
+            "message": "success",
+            "data": {
+                "session_id": session_id,
+                "history": history,
+                "count": len(history)
+            }
+        })
+    except Exception as e:
+        logger.error(f"History retrieval error: {e}")
         return jsonify({"code": -1, "message": str(e)}), 500
 
 # Error handlers (AI Playground pattern)
