@@ -1,0 +1,122 @@
+{
+  "id": "fractions_basic",
+  "title": "Introduction to Fractions",
+  "grade": "grade_5",
+  "subject": "math",
+  "difficulty": "beginner",
+  "estimated_time_minutes": 30,
+  "prerequisites": [],
+  "learning_objectives": [
+    "Understand what fractions represent",
+    "Identify numerator and denominator",
+    "Compare simple fractions",
+    "Solve basic fraction problems"
+  ],
+  "sections": [
+    {
+      "id": "section_1",
+      "title": "What are Fractions?",
+      "type": "explanation",
+      "content": "A fraction represents a part of a whole. When you divide something into equal parts, each part is a fraction of the whole.\n\nFor example:\n- If you cut a pizza into 8 equal slices and take 3 slices, you have 3/8 of the pizza\n- If you share a chocolate bar with 3 friends equally, each person gets 1/4 of the bar\n\nThe number on top is called the **numerator** (the parts you have).\nThe number on bottom is called the **denominator** (the total equal parts).",
+      "allow_doubts": true,
+      "doubt_prompt": "Do you have any questions about fractions, numerators, or denominators? Ask me anything!",
+      "ready_message": "Great! Now let's test your understanding with some questions.",
+      "questions": [
+        {
+          "id": "q1",
+          "question": "What do we call the top number in a fraction?",
+          "answer": "numerator",
+          "evaluation_criteria": ["numerator"],
+          "hints": [
+            "It tells you how many parts you have",
+            "It starts with 'n' and is on the 'north' (top) of the fraction"
+          ]
+        },
+        {
+          "id": "q2",
+          "question": "If you have 5 equal pieces and take 2, what fraction do you have?",
+          "answer": "2/5",
+          "evaluation_criteria": ["2/5", "two fifths", "2 out of 5"],
+          "hints": [
+            "How many pieces did you take?",
+            "How many total equal pieces were there?"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "section_2",
+      "title": "Comparing Fractions",
+      "type": "explanation",
+      "content": "When fractions have the same denominator (bottom number), comparing is easy!\n\n**Rule:** When denominators are the same, the fraction with the larger numerator is bigger.\n\nExamples:\n- 3/8 is bigger than 1/8 (because 3 > 1)\n- 5/10 is bigger than 2/10 (because 5 > 2)\n\nThink of it like pizza slices - if all slices are the same size, having 3 slices is more than having 1 slice!",
+      "allow_doubts": true,
+      "doubt_prompt": "Any questions about comparing fractions? Feel free to ask for more examples!",
+      "ready_message": "Awesome! Let's see if you can compare fractions now.",
+      "questions": [
+        {
+          "id": "q3",
+          "question": "Which is bigger: 4/7 or 2/7?",
+          "answer": "4/7",
+          "evaluation_criteria": ["4/7", "four sevenths"],
+          "hints": [
+            "The denominators are the same, so look at the numerators",
+            "Is 4 bigger or smaller than 2?"
+          ]
+        },
+        {
+          "id": "q4",
+          "question": "If Sarah ate 3/8 of a cake and Tom ate 5/8 of the same cake, who ate more?",
+          "answer": "Tom",
+          "evaluation_criteria": ["tom", "Tom ate more"],
+          "hints": [
+            "Compare the numerators when denominators are the same",
+            "5/8 vs 3/8 - which is larger?"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "section_3",
+      "title": "Practice Problems",
+      "type": "quiz",
+      "content": "Let's test your understanding with some practice problems!",
+      "allow_doubts": true,
+      "doubt_prompt": "Need help with any of these practice problems? Ask me!",
+      "ready_message": "You're doing great! Let's finish these practice questions.",
+      "questions": [
+        {
+          "id": "q5",
+          "question": "Write the fraction: 'three out of ten'",
+          "answer": "3/10",
+          "evaluation_criteria": ["3/10", "three tenths"],
+          "hints": [
+            "What number represents 'three'?",
+            "What number represents 'ten'?"
+          ]
+        },
+        {
+          "id": "q6",
+          "question": "If a chocolate bar has 12 pieces and you eat 5, what fraction did you eat?",
+          "answer": "5/12",
+          "evaluation_criteria": ["5/12", "five twelfths"],
+          "hints": [
+            "Numerator = pieces you ate",
+            "Denominator = total pieces"
+          ]
+        },
+        {
+          "id": "q7",
+          "question": "Which is smaller: 6/9 or 8/9?",
+          "answer": "6/9",
+          "evaluation_criteria": ["6/9", "six ninths"],
+          "hints": [
+            "Same denominator, compare numerators",
+            "Which numerator is smaller?"
+          ]
+        }
+      ]
+    }
+  ],
+  "summary": "Great job! You've learned that fractions represent parts of a whole, with the numerator showing how many parts you have and the denominator showing the total equal parts. You can compare fractions with the same denominator by looking at which numerator is larger.",
+  "next_lessons": ["fractions_addition"]
+}

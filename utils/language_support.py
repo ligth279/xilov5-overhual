@@ -41,7 +41,9 @@ class LanguageManager:
 7.  **Just answer the question directly - no meta-commentary.**
 8.  For math, give only the number. Example: User asks "7*6", you respond "42".
 9.  For greetings, give one short greeting. Example: User says "hello", you respond "Hello! How can I help?"
-10. For explanations, be clear and concise in 2-3 sentences.
+10. For explanations, be clear and concise in 2-4 sentences. DO NOT ramble or over-explain.
+11. **NEVER** write long paragraphs. Keep it short and focused.
+12. **NEVER** repeat the same point multiple times. Say it once and move on.
 """
     
     # Language-specific instructions (strong language enforcement)

@@ -181,7 +181,7 @@ class PhiTutor:
             add_generation_prompt=True
         )
     
-    def generate_response(self, user_message, max_new_tokens=768, temperature=0.7, top_p=0.9, conversation_history=None, language_code='en'):
+    def generate_response(self, user_message, max_new_tokens=768, temperature=0.7, top_p=0.9, conversation_history=None, language_code='en', system_prompt_override=None):
         """
         Generate AI tutor response with Intel XPU acceleration.
         
@@ -192,6 +192,7 @@ class PhiTutor:
             top_p (float): Nucleus sampling parameter
             conversation_history (list, optional): Previous conversation context
             language_code (str, optional): Language code for response
+            system_prompt_override (str, optional): Override system prompt (for lesson-specific contexts)
         """
         # Import torch locally
         import torch
@@ -245,7 +246,12 @@ class PhiTutor:
                     logger.info("Standalone simple question - treating as direct instruction (no history)")
             
             # Format prompt with conversation history and language
-            prompt = self.format_prompt(user_message, conversation_history=final_conversation_history, language_code=language_code)
+            prompt = self.format_prompt(
+                user_message, 
+                conversation_history=final_conversation_history, 
+                language_code=language_code,
+                system_message=system_prompt_override  # Use override if provided
+            )
             
             # Tokenize (limit input to prevent OOM)
             inputs = self.tokenizer(

@@ -1,0 +1,50 @@
+{
+  "version": "1.0.0",
+  "last_updated": "2025-11-09",
+  "grades": {
+    "grade_5": {
+      "name": "Grade 5",
+      "subjects": {
+        "math": {
+          "name": "Mathematics",
+          "lessons": [
+            {
+              "id": "fractions_basic",
+              "title": "Introduction to Fractions",
+              "file": "lessons/grade_5/math/fractions_basic.json",
+              "difficulty": "beginner",
+              "estimated_time_minutes": 30,
+              "prerequisites": []
+            }
+          ]
+        },
+        "english": {
+          "name": "English",
+          "lessons": [
+            {
+              "id": "poetry_basics",
+              "title": "Understanding Poetry",
+              "file": "lessons/grade_5/english/poetry_basics.json",
+              "difficulty": "beginner",
+              "estimated_time_minutes": 25,
+              "prerequisites": []
+            }
+          ]
+        },
+        "science": {
+          "name": "Science",
+          "lessons": []
+        }
+      }
+    },
+    "grade_6": {
+      "name": "Grade 6",
+      "subjects": {
+        "math": {
+          "name": "Mathematics",
+          "lessons": []
+        }
+      }
+    }
+  }
+}
