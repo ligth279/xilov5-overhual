@@ -1,0 +1,124 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Xilo AI Tutor - Lessons</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/base.css') }}">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/lessons.css') }}">
+</head>
+<body>
+  <header class="header">
+    <div class="header-content">
+      <div class="header-left">
+        <a href="/" class="logo">Xilo AI Tutor</a>
+        <span class="text-muted">|</span>
+        <span class="text-secondary">Lessons</span>
+      </div>
+      <div>
+        <a href="/" class="btn btn-secondary">💬 Chat</a>
+      </div>
+    </div>
+  </header>
+
+  <main class="container" style="padding-top: 2rem;">
+    <!-- Filters -->
+    <div class="filters-section">
+      <div class="filter-group">
+        <label for="gradeSelect">Grade</label>
+        <select id="gradeSelect" class="select">
+          <option value="">Select Grade</option>
+        </select>
+      </div>
+      <div class="filter-group">
+        <label for="subjectSelect">Subject</label>
+        <select id="subjectSelect" class="select" disabled>
+          <option value="">Select Grade First</option>
+        </select>
+      </div>
+    </div>
+
+    <!-- Lessons Grid -->
+    <div id="lessonsGrid" class="lessons-grid">
+      <div class="empty-state">
+        <h3>📚 Select a grade and subject to start learning</h3>
+        <p class="text-secondary">Choose your grade level and subject to see available lessons</p>
+      </div>
+    </div>
+  </main>
+
+  <!-- Lesson Modal (Split View) -->
+  <div id="lessonModal" class="modal" style="display: none;">
+    <div class="modal-backdrop"></div>
+    <div class="modal-container">
+      <div class="modal-header">
+        <h2 id="lessonTitle">Lesson</h2>
+        <button id="closeModal" class="btn-icon">✕</button>
+      </div>
+
+      <div class="split-container">
+        <!-- Left: Lesson Content -->
+        <div class="left-pane">
+          <div id="lessonContent">
+            <h3 id="sectionTitle">Section 1</h3>
+            <div id="contentArea" class="content-area"></div>
+            <div class="actions mt-3">
+              <button id="readyBtn" class="btn btn-primary">I'm Ready ✓</button>
+            </div>
+          </div>
+
+          <!-- Quiz View (replaces content when quiz starts) -->
+          <div id="quizView" style="display: none;">
+            <h3>Quiz Time! 🎯</h3>
+            <div class="quiz-question">
+              <p id="questionText">Question text</p>
+              <span class="text-muted" id="questionCounter">Question 1 of 5</span>
+            </div>
+            <input type="text" id="answerInput" placeholder="Type your answer..." class="mt-2">
+            <div id="feedback" class="feedback mt-2" style="display: none;"></div>
+            <div class="actions mt-3">
+              <button id="submitBtn" class="btn btn-primary">Submit Answer</button>
+              <button id="nextBtn" class="btn btn-success" style="display: none;">Next Question →</button>
+            </div>
+          </div>
+
+          <!-- Complete View -->
+          <div id="completeView" style="display: none;">
+            <div class="complete-card">
+              <h2>🎉 Lesson Complete!</h2>
+              <p id="completeMessage">Great job finishing this lesson!</p>
+              <div class="stats mt-2">
+                <div class="stat-item">
+                  <span class="stat-label">Time Spent</span>
+                  <span class="stat-value" id="timeSpent">0m</span>
+                </div>
+                <div class="stat-item">
+                  <span class="stat-label">Sections</span>
+                  <span class="stat-value" id="sectionsComplete">0</span>
+                </div>
+              </div>
+              <button id="continueBtn" class="btn btn-primary mt-3">Continue Learning →</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Right: Doubt Chat -->
+        <div class="right-pane">
+          <h4>💬 Ask Your Doubts</h4>
+          <div id="doubtChat" class="doubt-chat">
+            <div class="chat-welcome">
+              <p class="text-secondary">Have questions? Ask me anything about this lesson!</p>
+            </div>
+          </div>
+          <div class="doubt-input">
+            <textarea id="doubtInput" placeholder="Type your doubt..." rows="2"></textarea>
+            <button id="sendDoubt" class="btn btn-primary btn-sm">Send</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script src="{{ url_for('static', filename='js/lessons.js') }}"></script>
+</body>
+</html>

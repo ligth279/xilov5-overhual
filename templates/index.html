@@ -1,180 +1,74 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Xilo AI Tutor - Intel GPU Powered Learning</title>
-    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
-    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Xilo AI Tutor - Chat</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/base.css') }}">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/chat.css') }}">
 </head>
 <body>
-    <div class="container">
-        <!-- Header -->
-        <header class="header">
-            <div class="header-content">
-                <div class="logo-section">
-                    <i class="fas fa-brain logo-icon"></i>
-                    <h1>Xilo AI Tutor</h1>
-                    <span class="subtitle">Powered by Intel GPU & Phi 3.5</span>
-                </div>
-                <div class="status-section">
-                    <div class="gpu-status" id="gpu-status">
-                        <i class="fas fa-microchip"></i>
-                        <span>Loading...</span>
-                    </div>
-                    <a href="/logs" class="logs-link">
-                        <i class="fas fa-chart-line"></i>
-                        <span>System Logs</span>
-                    </a>
-                </div>
-            </div>
-        </header>
-
-        <!-- Main Chat Interface -->
-        <main class="chat-container">
-            <div class="chat-messages" id="chat-messages">
-                <div class="message bot-message">
-                    <div class="message-content">
-                        <div class="message-avatar">
-                            <i class="fas fa-robot"></i>
-                        </div>
-                        <div class="message-text">
-                            <h3>Welcome to Xilo AI Tutor! 🎓</h3>
-                            <p>I'm your AI-powered learning companion, running on your Intel GPU with XMX engines for lightning-fast responses!</p>
-                            <p>Ask me anything you'd like to learn about - math, science, programming, history, or any other subject. I'm here to help you understand and grow!</p>
-                            <div class="suggestions">
-                                <button class="suggestion-btn" onclick="sendSuggestion('Explain quantum physics in simple terms')">
-                                    <i class="fas fa-atom"></i> Quantum Physics
-                                </button>
-                                <button class="suggestion-btn" onclick="sendSuggestion('Help me learn Python programming')">
-                                    <i class="fab fa-python"></i> Python Programming
-                                </button>
-                                <button class="suggestion-btn" onclick="sendSuggestion('Explain calculus derivatives with examples')">
-                                    <i class="fas fa-calculator"></i> Calculus
-                                </button>
-                                <button class="suggestion-btn" onclick="sendSuggestion('Tell me about machine learning')">
-                                    <i class="fas fa-brain"></i> Machine Learning
-                                </button>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-            <!-- Loading Animation -->
-            <div class="loading-message" id="loading-message" style="display: none;">
-                <div class="message-content">
-                    <div class="message-avatar">
-                        <i class="fas fa-robot"></i>
-                    </div>
-                    <div class="message-text">
-                        <div class="typing-indicator">
-                            <div class="typing-dot"></div>
-                            <div class="typing-dot"></div>
-                            <div class="typing-dot"></div>
-                        </div>
-                        <span class="loading-text">Xilo is thinking on Intel GPU...</span>
-                    </div>
-                </div>
-            </div>
-
-            <!-- Input Area -->
-            <div class="input-container">
-                <div class="input-wrapper">
-                    <textarea 
-                        id="user-input" 
-                        placeholder="Ask me anything you'd like to learn..." 
-                        rows="1"
-                        maxlength="1000"
-                    ></textarea>
-                    <button id="send-button" onclick="sendMessage()">
-                        <i class="fas fa-paper-plane"></i>
-                    </button>
-                </div>
-                <div class="input-footer">
-                    <div class="char-counter">
-                        <span id="char-count">0</span>/1000
-                    </div>
-                    <div class="shortcuts">
-                        Press <kbd>Enter</kbd> to send, <kbd>Shift+Enter</kbd> for new line
-                    </div>
-                </div>
-            </div>
-        </main>
-
-        <!-- Model Info Modal -->
-        <div class="modal" id="info-modal">
-            <div class="modal-content">
-                <div class="modal-header">
-                    <h3><i class="fas fa-info-circle"></i> System Information</h3>
-                    <button class="close-btn" onclick="closeModal()">&times;</button>
-                </div>
-                <div class="modal-body" id="modal-body">
-                    Loading system information...
-                </div>
-            </div>
+  <header class="header">
+    <div class="header-content">
+      <div class="header-left">
+        <a href="/" class="logo">Xilo AI Tutor</a>
+        <span class="text-muted">|</span>
+        <span class="text-secondary">Chat</span>
+      </div>
+      <div class="header-right">
+        <div class="language-selector">
+          <select id="languageSelect" class="select-sm">
+            <option value="en">English</option>
+            <option value="hi">हिंदी (Hindi)</option>
+            <option value="te">తెలుగు (Telugu)</option>
+            <option value="ta">தமிழ் (Tamil)</option>
+            <option value="kn">ಕನ್ನಡ (Kannada)</option>
+            <option value="ml">മലയാളം (Malayalam)</option>
+            <option value="bn">বাংলা (Bengali)</option>
+            <option value="mr">मराठी (Marathi)</option>
+            <option value="gu">ગુજરાતી (Gujarati)</option>
+            <option value="pa">ਪੰਜਾਬੀ (Punjabi)</option>
+            <option value="or">ଓଡ଼ିଆ (Odia)</option>
+            <option value="as">অসমীয়া (Assamese)</option>
+            <option value="ur">اردو (Urdu)</option>
+          </select>
         </div>
-
-        <!-- Settings Panel -->
-        <div class="settings-panel" id="settings-panel">
-            <button class="settings-toggle" onclick="toggleSettings()">
-                <i class="fas fa-cog"></i>
-            </button>
-            <div class="settings-content">
-                <h4>Generation Settings</h4>
-                
-                <div class="setting-item">
-                    <label for="language-select">Language:</label>
-                    <select id="language-select" onchange="xiloChat.changeLanguage(this.value)">
-                        <option value="en">🇬🇧 English</option>
-                        <option value="es">🇪🇸 Español</option>
-                        <option value="fr">🇫🇷 Français</option>
-                        <option value="de">🇩🇪 Deutsch</option>
-                        <option value="it">🇮🇹 Italiano</option>
-                        <option value="pt">🇵🇹 Português</option>
-                        <option value="zh">🇨🇳 中文</option>
-                        <option value="ja">🇯🇵 日本語</option>
-                        <option value="ko">🇰🇷 한국어</option>
-                        <option value="ar">🇸🇦 العربية</option>
-                        <option value="hi">🇮🇳 हिन्दी</option>
-                        <option value="ru">🇷🇺 Русский</option>
-                        <option value="ml">🇮🇳 മലയാളം</option>
-                    </select>
-                </div>
-                
-                <div class="setting-item">
-                    <label for="translation-mode">Translation Mode:</label>
-                    <select id="translation-mode" onchange="xiloChat.changeTranslationMode(this.value)">
-                        <option value="direct">🤖 Direct AI (Beta)</option>
-                        <option value="google" selected>🌐 Google Translate</option>
-                    </select>
-                    <small style="color: var(--text-muted); font-size: 0.75rem; display: block; margin-top: 0.25rem;">
-                        Direct: AI responds natively (may hallucinate)<br>
-                        Google: Translate English responses (more accurate)
-                    </small>
-                </div>
-                
-                <div class="setting-item">
-                    <label for="temperature">Temperature:</label>
-                    <input type="range" id="temperature" min="0.1" max="1.0" step="0.1" value="0.7">
-                    <span id="temp-value">0.7</span>
-                </div>
-                <div class="setting-item">
-                    <label for="max-length">Max Length:</label>
-                    <input type="range" id="max-length" min="512" max="2048" step="128" value="2048">
-                    <span id="length-value">2048</span>
-                </div>
-                <button class="info-btn" onclick="showInfo()">
-                    <i class="fas fa-info-circle"></i> System Info
-                </button>
-                <button class="info-btn" onclick="xiloChat.clearChatHistory()" style="background: linear-gradient(135deg, #f59e0b 0%, #ef4444 100%); margin-top: 0.5rem;">
-                    <i class="fas fa-trash"></i> Clear Chat History
-                </button>
-            </div>
+        <div class="translation-toggle">
+          <label class="toggle-label">
+            <input type="checkbox" id="translationMode">
+            <span class="toggle-text">AI Translation <span class="beta-badge">BETA</span></span>
+          </label>
         </div>
+        <a href="/lessons" class="btn btn-secondary">📚 Lessons</a>
+      </div>
+    </div>
+  </header>
+
+  <main class="chat-container">
+    <div class="chat-messages" id="chatMessages">
+      <div class="welcome-message">
+        <h2>👋 Welcome to Xilo AI Tutor</h2>
+        <p class="text-secondary">Ask me anything about your studies, or click "Lessons" to start structured learning.</p>
+      </div>
     </div>
 
-    <script src="{{ url_for('static', filename='js/app.js') }}"></script>
+    <div class="chat-input-area">
+      <div class="chat-input-wrapper">
+        <textarea 
+          id="chatInput" 
+          placeholder="Ask a question or type your doubt..."
+          rows="1"
+        ></textarea>
+        <button id="sendBtn" class="btn btn-primary">
+          Send
+        </button>
+      </div>
+      <div class="chat-info">
+        <span class="text-muted" id="statusText">Ready</span>
+      </div>
+    </div>
+  </main>
+
+  <script src="{{ url_for('static', filename='js/chat.js') }}"></script>
 </body>
 </html>

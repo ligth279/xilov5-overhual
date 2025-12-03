@@ -1,0 +1,834 @@
+// Lessons Page JavaScript
+
+class LessonApp {
+    constructor() {
+        this.userId = this.getUserId();
+        this.currentGrade = null;
+        this.currentSubject = null;
+        this.currentLesson = null;
+        this.currentSection = null;
+        this.currentSectionIndex = 0;
+        this.currentQuestionIndex = 0;
+        this.hintsUsed = 0;
+        this.lessonStartTime = null;
+        this.sectionPhase = 'explanation'; // explanation | doubt | assessment
+        
+        this.init();
+    }
+    
+    getUserId() {
+        // Simple user ID (can be replaced with proper authentication)
+        let userId = localStorage.getItem('xilo_user_id');
+        if (!userId) {
+            userId = 'user_' + Math.random().toString(36).substr(2, 9);
+            localStorage.setItem('xilo_user_id', userId);
+        }
+        return userId;
+    }
+    
+    init() {
+        this.loadGrades();
+        this.setupEventListeners();
+        this.loadLanguagePreference();
+    }
+    
+    loadLanguagePreference() {
+        // Load saved language preference
+        const savedLanguage = localStorage.getItem('xilo_lesson_language') || 'en';
+        
+        // Set language in both dropdowns
+        const mathSelect = document.getElementById('mathLanguageSelect');
+        const englishSelect = document.getElementById('englishLanguageSelect');
+        
+        if (mathSelect) mathSelect.value = savedLanguage;
+        if (englishSelect) englishSelect.value = savedLanguage;
+        
+        // Add change listeners to save preference
+        if (mathSelect) {
+            mathSelect.addEventListener('change', (e) => {
+                localStorage.setItem('xilo_lesson_language', e.target.value);
+            });
+        }
+        if (englishSelect) {
+            englishSelect.addEventListener('change', (e) => {
+                localStorage.setItem('xilo_lesson_language', e.target.value);
+            });
+        }
+    }
+    
+    setupEventListeners() {
+        // Grade/Subject selection
+        document.getElementById('gradeSelect').addEventListener('change', (e) => {
+            this.currentGrade = e.target.value;
+            this.loadSubjects(this.currentGrade);
+        });
+        
+        document.getElementById('subjectSelect').addEventListener('change', (e) => {
+            this.currentSubject = e.target.value;
+            this.loadLessons(this.currentGrade, this.currentSubject);
+        });
+        
+        // Dashboard
+        document.getElementById('dashboardBtn').addEventListener('click', () => {
+            this.showDashboard();
+        });
+        
+        document.querySelector('.close').addEventListener('click', () => {
+            document.getElementById('dashboardModal').style.display = 'none';
+        });
+        
+        // Lesson viewer
+        document.getElementById('closeLessonBtn').addEventListener('click', () => {
+            this.closeLesson();
+        });
+        
+        // Math lesson controls
+        document.getElementById('mathSendBtn').addEventListener('click', () => {
+            this.sendMessage('math');
+        });
+        
+        document.getElementById('mathChatInput').addEventListener('keypress', (e) => {
+            if (e.key === 'Enter' && !e.shiftKey) {
+                e.preventDefault();
+                this.sendMessage('math');
+            }
+        });
+        
+        document.getElementById('mathReadyBtn').addEventListener('click', () => {
+            this.startAssessment('math');
+        });
+        
+        document.getElementById('mathNextSectionBtn').addEventListener('click', () => {
+            this.nextSection();
+        });
+        
+        // English lesson controls
+        document.getElementById('englishSendBtn').addEventListener('click', () => {
+            this.sendMessage('english');
+        });
+        
+        document.getElementById('englishChatInput').addEventListener('keypress', (e) => {
+            if (e.key === 'Enter' && !e.shiftKey) {
+                e.preventDefault();
+                this.sendMessage('english');
+            }
+        });
+        
+        document.getElementById('englishReadyBtn').addEventListener('click', () => {
+            this.startAssessment('english');
+        });
+        
+        document.getElementById('englishNextSectionBtn').addEventListener('click', () => {
+            this.nextSection();
+        });
+        
+        // Quiz controls
+        document.getElementById('submitAnswerBtn').addEventListener('click', () => {
+            this.submitAnswer();
+        });
+        
+        document.getElementById('getHintBtn').addEventListener('click', () => {
+            this.getHint();
+        });
+        
+        document.getElementById('nextQuestionBtn').addEventListener('click', () => {
+            this.nextQuestion();
+        });
+        
+        document.getElementById('quizAnswer').addEventListener('keypress', (e) => {
+            if (e.key === 'Enter' && !e.shiftKey) {
+                e.preventDefault();
+                this.submitAnswer();
+            }
+        });
+        
+        // Lesson complete
+        document.getElementById('backToLessonsBtn').addEventListener('click', () => {
+            this.closeLesson();
+            this.loadLessons(this.currentGrade, this.currentSubject);
+        });
+        
+        document.getElementById('reviewLessonBtn').addEventListener('click', () => {
+            this.reviewLesson();
+        });
+    }
+    
+    async loadGrades() {
+        try {
+            const response = await fetch('/api/lessons/grades');
+            const data = await response.json();
+            
+            if (data.code === 0) {
+                const select = document.getElementById('gradeSelect');
+                select.innerHTML = '<option value="">Select a grade</option>';
+                
+                data.data.grades.forEach(grade => {
+                    const option = document.createElement('option');
+                    option.value = grade.id;
+                    option.textContent = grade.name;
+                    select.appendChild(option);
+                });
+            }
+        } catch (error) {
+            console.error('Error loading grades:', error);
+            this.showError('Failed to load grades');
+        }
+    }
+    
+    async loadSubjects(grade) {
+        try {
+            const response = await fetch(`/api/lessons/${grade}/subjects`);
+            const data = await response.json();
+            
+            if (data.code === 0) {
+                const select = document.getElementById('subjectSelect');
+                select.innerHTML = '<option value="">Select a subject</option>';
+                
+                data.data.subjects.forEach(subject => {
+                    const option = document.createElement('option');
+                    option.value = subject.id;
+                    option.textContent = `${subject.name} (${subject.lesson_count} lessons)`;
+                    select.appendChild(option);
+                });
+                
+                document.getElementById('lessonsList').innerHTML = '<p class="loading-text">Select a subject to see lessons</p>';
+            }
+        } catch (error) {
+            console.error('Error loading subjects:', error);
+            this.showError('Failed to load subjects');
+        }
+    }
+    
+    async loadLessons(grade, subject) {
+        try {
+            const response = await fetch(`/api/lessons/${grade}/${subject}`);
+            const data = await response.json();
+            
+            if (data.code === 0) {
+                const container = document.getElementById('lessonsList');
+                container.innerHTML = '';
+                
+                if (data.data.lessons.length === 0) {
+                    container.innerHTML = '<p class="loading-text">No lessons available yet</p>';
+                    return;
+                }
+                
+                // Load progress for this subject
+                const progressResponse = await fetch(`/api/progress/subject?user_id=${this.userId}&grade=${grade}&subject=${subject}`);
+                const progressData = await progressResponse.json();
+                const progress = progressData.code === 0 ? progressData.data.progress.lessons : {};
+                
+                data.data.lessons.forEach(lesson => {
+                    const card = this.createLessonCard(lesson, progress[lesson.id]);
+                    container.appendChild(card);
+                });
+            }
+        } catch (error) {
+            console.error('Error loading lessons:', error);
+            this.showError('Failed to load lessons');
+        }
+    }
+    
+    createLessonCard(lesson, progress) {
+        const card = document.createElement('div');
+        card.className = 'lesson-card';
+        
+        if (progress) {
+            if (progress.status === 'completed') {
+                card.classList.add('completed');
+            } else if (progress.status === 'in_progress') {
+                card.classList.add('in-progress');
+            }
+        }
+        
+        const progressText = progress ? 
+            (progress.status === 'completed' ? 
+                `<div class="lesson-score">Score: ${progress.total_score}%</div>` :
+                `<div class="lesson-score">In Progress: ${progress.sections_completed.length} sections</div>`) :
+            '';
+        
+        card.innerHTML = `
+            <div class="lesson-title">${lesson.title}</div>
+            <span class="lesson-difficulty ${lesson.difficulty}">${lesson.difficulty}</span>
+            <div class="lesson-meta">
+                <span>⏱️ ${lesson.estimated_time_minutes} min</span>
+                <span>📚 ${lesson.prerequisites.length > 0 ? 'Has Prerequisites' : 'No Prerequisites'}</span>
+            </div>
+            ${progressText}
+        `;
+        
+        card.addEventListener('click', () => {
+            this.openLesson(this.currentGrade, this.currentSubject, lesson.id);
+        });
+        
+        return card;
+    }
+    
+    async openLesson(grade, subject, lessonId) {
+        try {
+            // Load lesson data
+            const response = await fetch(`/api/lessons/${grade}/${subject}/${lessonId}`);
+            const data = await response.json();
+            
+            if (data.code !== 0) {
+                this.showError('Failed to load lesson');
+                return;
+            }
+            
+            this.currentLesson = data.data.lesson;
+            this.currentGrade = grade;
+            this.currentSubject = subject;
+            this.currentSectionIndex = 0;
+            this.lessonStartTime = Date.now();
+            
+            // Start lesson progress tracking
+            await fetch('/api/progress/start-lesson', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({
+                    user_id: this.userId,
+                    grade: grade,
+                    subject: subject,
+                    lesson_id: lessonId
+                })
+            });
+            
+            // Show lesson modal
+            document.getElementById('lessonModal').style.display = 'block';
+            document.getElementById('lessonTitle').textContent = this.currentLesson.title;
+            document.getElementById('totalSections').textContent = this.currentLesson.sections.length;
+            
+            // Load first section
+            this.loadSection(0);
+            
+        } catch (error) {
+            console.error('Error opening lesson:', error);
+            this.showError('Failed to open lesson');
+        }
+    }
+    
+    loadSection(index) {
+        this.currentSectionIndex = index;
+        this.currentSection = this.currentLesson.sections[index];
+        this.currentQuestionIndex = 0;
+        this.hintsUsed = 0;
+        this.sectionPhase = 'explanation';
+        
+        // Update header
+        document.getElementById('currentSectionNum').textContent = index + 1;
+        const progress = ((index + 1) / this.currentLesson.sections.length) * 100;
+        document.getElementById('lessonProgressFill').style.width = progress + '%';
+        
+        // Update section progress
+        fetch('/api/progress/update-section', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({
+                user_id: this.userId,
+                grade: this.currentGrade,
+                subject: this.currentSubject,
+                lesson_id: this.currentLesson.id,
+                section_id: this.currentSection.id,
+                status: 'in_progress'
+            })
+        });
+        
+        // Determine lesson type (math or english) and show appropriate view
+        const isMath = this.currentSubject === 'math';
+        const view = isMath ? 'mathLessonView' : 'englishLessonView';
+        
+        document.getElementById('mathLessonView').style.display = isMath ? 'block' : 'none';
+        document.getElementById('englishLessonView').style.display = isMath ? 'none' : 'block';
+        document.getElementById('quizMode').style.display = 'none';
+        document.getElementById('lessonComplete').style.display = 'none';
+        
+        // Clear previous messages
+        if (isMath) {
+            document.getElementById('mathChatMessages').innerHTML = '';
+            document.getElementById('mathChatInput').value = '';
+        } else {
+            document.getElementById('englishChatMessages').innerHTML = '';
+            document.getElementById('englishChatInput').value = '';
+            document.getElementById('readingContent').innerHTML = '';
+        }
+        
+        // Show section content
+        this.showSectionContent(isMath);
+    }
+    
+    showSectionContent(isMath) {
+        const content = this.currentSection.content;
+        const doubtPrompt = this.currentSection.doubt_prompt || "Do you have any questions?";
+        
+        if (isMath) {
+            // Math: Show content in chat
+            this.addMessage('system', `📖 ${this.currentSection.title}`, 'math');
+            this.addMessage('ai', content, 'math');
+            this.addMessage('ai', doubtPrompt, 'math');
+            
+            document.getElementById('mathReadyBtn').style.display = 'inline-block';
+            document.getElementById('mathNextSectionBtn').style.display = 'none';
+        } else {
+            // English: Show in reading pane
+            document.getElementById('readingContent').innerHTML = `
+                <h3>${this.currentSection.title}</h3>
+                <div>${content.replace(/\n/g, '<br>')}</div>
+            `;
+            
+            this.addMessage('ai', doubtPrompt, 'english');
+            
+            document.getElementById('englishReadyBtn').style.display = 'inline-block';
+            document.getElementById('englishNextSectionBtn').style.display = 'none';
+        }
+    }
+    
+    async sendMessage(type) {
+        const inputId = type === 'math' ? 'mathChatInput' : 'englishChatInput';
+        const messagesId = type === 'math' ? 'mathChatMessages' : 'englishChatMessages';
+        const sendBtnId = type === 'math' ? 'mathSendBtn' : 'englishSendBtn';
+        const languageSelectId = type === 'math' ? 'mathLanguageSelect' : 'englishLanguageSelect';
+        
+        const input = document.getElementById(inputId);
+        const message = input.value.trim();
+        
+        if (!message) return;
+        
+        // Get selected language
+        const selectedLanguage = document.getElementById(languageSelectId).value;
+        
+        // Add user message
+        this.addMessage('user', message, type);
+        input.value = '';
+        
+        // Disable send button
+        document.getElementById(sendBtnId).disabled = true;
+        
+        try {
+            // Send to doubt chat API with language and translation mode
+            const response = await fetch('/api/lessons/doubt-chat', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({
+                    message: message,
+                    grade: this.currentGrade,
+                    subject: this.currentSubject,
+                    lesson_id: this.currentLesson.id,
+                    section_id: this.currentSection.id,
+                    user_id: this.userId,
+                    language: selectedLanguage,
+                    translation_mode: 'google',  // Use Google Translate for better multilingual support
+                    target_language: selectedLanguage
+                })
+            });
+            
+            const data = await response.json();
+            
+            if (data.code === 0) {
+                this.addMessage('ai', data.data.response, type);
+            } else {
+                this.addMessage('ai', 'Sorry, I encountered an error. Please try again.', type);
+            }
+        } catch (error) {
+            console.error('Error sending message:', error);
+            this.addMessage('ai', 'Sorry, I encountered an error. Please try again.', type);
+        } finally {
+            document.getElementById(sendBtnId).disabled = false;
+        }
+    }
+    
+    addMessage(role, content, type) {
+        const messagesId = type === 'math' ? 'mathChatMessages' : 'englishChatMessages';
+        const messagesDiv = document.getElementById(messagesId);
+        
+        const messageDiv = document.createElement('div');
+        messageDiv.className = `message ${role}`;
+        messageDiv.innerHTML = `
+            <div class="message-content">${content.replace(/\n/g, '<br>')}</div>
+        `;
+        
+        messagesDiv.appendChild(messageDiv);
+        messagesDiv.scrollTop = messagesDiv.scrollHeight;
+    }
+    
+    startAssessment(type) {
+        this.sectionPhase = 'assessment';
+        
+        // Hide ready button
+        if (type === 'math') {
+            document.getElementById('mathReadyBtn').style.display = 'none';
+        } else {
+            document.getElementById('englishReadyBtn').style.display = 'none';
+        }
+        
+        // Show ready message
+        const readyMessage = this.currentSection.ready_message || "Great! Now let's test your understanding.";
+        this.addMessage('system', readyMessage, type);
+        
+        // Start quiz
+        this.currentQuestionIndex = 0;
+        this.showQuiz();
+    }
+    
+    showQuiz() {
+        const questions = this.currentSection.questions;
+        
+        if (!questions || questions.length === 0) {
+            // No questions, complete section
+            this.completeSection();
+            return;
+        }
+        
+        if (this.currentQuestionIndex >= questions.length) {
+            // All questions answered, complete section
+            this.completeSection();
+            return;
+        }
+        
+        const question = questions[this.currentQuestionIndex];
+        this.hintsUsed = 0;
+        
+        document.getElementById('quizMode').style.display = 'flex';
+        document.getElementById('quizQuestion').textContent = question.question;
+        document.getElementById('quizAnswer').value = '';
+        document.getElementById('quizFeedback').innerHTML = '';
+        document.getElementById('quizFeedback').className = 'quiz-feedback';
+        document.getElementById('currentQuestionNum').textContent = this.currentQuestionIndex + 1;
+        document.getElementById('totalQuestions').textContent = questions.length;
+        
+        document.getElementById('submitAnswerBtn').style.display = 'inline-block';
+        document.getElementById('getHintBtn').style.display = 'inline-block';
+        document.getElementById('nextQuestionBtn').style.display = 'none';
+    }
+    
+    async submitAnswer() {
+        const answer = document.getElementById('quizAnswer').value.trim();
+        
+        if (!answer) {
+            alert('Please enter an answer');
+            return;
+        }
+        
+        const question = this.currentSection.questions[this.currentQuestionIndex];
+        const submitBtn = document.getElementById('submitAnswerBtn');
+        
+        // Add loading state
+        submitBtn.classList.add('loading');
+        submitBtn.disabled = true;
+        
+        try {
+            // Evaluate answer
+            const response = await fetch('/api/lessons/evaluate-answer', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({
+                    grade: this.currentGrade,
+                    subject: this.currentSubject,
+                    lesson_id: this.currentLesson.id,
+                    section_id: this.currentSection.id,
+                    question_id: question.id,
+                    answer: answer,
+                    use_ai: false
+                })
+            });
+            
+            const data = await response.json();
+            
+            if (data.code === 0) {
+                const evaluation = data.data.evaluation;
+                
+                // Record answer in progress
+                await fetch('/api/progress/record-answer', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({
+                        user_id: this.userId,
+                        grade: this.currentGrade,
+                        subject: this.currentSubject,
+                        lesson_id: this.currentLesson.id,
+                        question_id: question.id,
+                        is_correct: evaluation.is_correct,
+                        hints_used: this.hintsUsed
+                    })
+                });
+                
+                // Show feedback
+                const feedbackDiv = document.getElementById('quizFeedback');
+                feedbackDiv.textContent = evaluation.feedback;
+                feedbackDiv.className = 'quiz-feedback ' + (evaluation.is_correct ? 'correct' : 'incorrect');
+                
+                if (evaluation.is_correct) {
+                    // Correct answer - hide submit button, show next button
+                    submitBtn.style.display = 'none';
+                    document.getElementById('nextQuestionBtn').style.display = 'inline-block';
+                } else {
+                    // Wrong answer - automatically get AI hint
+                    await this.getAutoHint(answer);
+                }
+                
+                // Remove loading state after hint is shown (if wrong) or immediately (if correct)
+                submitBtn.classList.remove('loading');
+                submitBtn.disabled = false;
+            }
+        } catch (error) {
+            console.error('Error submitting answer:', error);
+            alert('Error checking answer. Please try again.');
+            
+            // Remove loading state on error
+            submitBtn.classList.remove('loading');
+            submitBtn.disabled = false;
+        }
+    }
+    
+    async getAutoHint(studentAnswer) {
+        const question = this.currentSection.questions[this.currentQuestionIndex];
+        
+        try {
+            const response = await fetch('/api/lessons/get-hint', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({
+                    grade: this.currentGrade,
+                    subject: this.currentSubject,
+                    lesson_id: this.currentLesson.id,
+                    section_id: this.currentSection.id,
+                    question_id: question.id,
+                    hint_level: this.hintsUsed,
+                    answer: studentAnswer  // Send student's answer for contextual hint
+                })
+            });
+            
+            const data = await response.json();
+            
+            if (data.code === 0) {
+                const feedbackDiv = document.getElementById('quizFeedback');
+                
+                // If answer is completely unrelated - close quiz immediately
+                if (data.data.close_quiz) {
+                    feedbackDiv.textContent = '❌ ' + data.data.hint;
+                    feedbackDiv.className = 'quiz-feedback incorrect';
+                    
+                    // Mark this question as failed
+                    await fetch('/api/progress/record-answer', {
+                        method: 'POST',
+                        headers: {'Content-Type': 'application/json'},
+                        body: JSON.stringify({
+                            user_id: this.userId,
+                            grade: this.currentGrade,
+                            subject: this.currentSubject,
+                            lesson_id: this.currentLesson.id,
+                            question_id: question.id,
+                            is_correct: false,
+                            hints_used: this.hintsUsed + 1
+                        })
+                    });
+                    
+                    // Close quiz and reset to explanation phase
+                    setTimeout(() => {
+                        document.getElementById('quizMode').style.display = 'none';
+                        
+                        const isMath = this.currentSubject === 'math';
+                        this.addMessage('system', 
+                            '⚠️ Your answer was unrelated to the topic. Please review the lesson material carefully before trying again.', 
+                            isMath ? 'math' : 'english'
+                        );
+                        
+                        // Reset quiz state
+                        this.currentQuestionIndex = 0;
+                        this.hintsUsed = 0;
+                    }, 3000);
+                    return;
+                }
+                
+                // If hint suggests student should retry section (review needed)
+                if (data.data.should_retry_section) {
+                    feedbackDiv.textContent = '❌ ' + data.data.hint;
+                    feedbackDiv.className = 'quiz-feedback incorrect';
+                    
+                    // Mark this question as failed
+                    await fetch('/api/progress/record-answer', {
+                        method: 'POST',
+                        headers: {'Content-Type': 'application/json'},
+                        body: JSON.stringify({
+                            user_id: this.userId,
+                            grade: this.currentGrade,
+                            subject: this.currentSubject,
+                            lesson_id: this.currentLesson.id,
+                            question_id: question.id,
+                            is_correct: false,
+                            hints_used: this.hintsUsed + 1
+                        })
+                    });
+                    
+                    // Wait a moment for student to read the feedback, then close quiz
+                    setTimeout(() => {
+                        document.getElementById('quizMode').style.display = 'none';
+                        
+                        // Show message in chat
+                        const isMath = this.currentSubject === 'math';
+                        this.addMessage('system', 
+                            '⚠️ You need to review the material before attempting the quiz. Please read through the lesson content carefully.', 
+                            isMath ? 'math' : 'english'
+                        );
+                        
+                        // Reset to explanation phase
+                        this.currentQuestionIndex = 0;
+                        this.hintsUsed = 0;
+                    }, 2500);
+                } else {
+                    // Show AI hint for spelling errors or related but wrong answers
+                    feedbackDiv.textContent = '💡 Hint: ' + data.data.hint;
+                    feedbackDiv.className = 'quiz-feedback hint';
+                    this.hintsUsed++;
+                }
+            }
+        } catch (error) {
+            console.error('Error getting hint:', error);
+        }
+    }
+    
+    restartSection() {
+        // Close quiz overlay
+        document.getElementById('quizMode').style.display = 'none';
+        
+        // Reload the same section from the beginning
+        this.loadSection(this.currentSectionIndex);
+    }
+    
+    nextQuestion() {
+        this.currentQuestionIndex++;
+        this.showQuiz();
+    }
+    
+    async completeSection() {
+        // Update section as completed
+        await fetch('/api/progress/update-section', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({
+                user_id: this.userId,
+                grade: this.currentGrade,
+                subject: this.currentSubject,
+                lesson_id: this.currentLesson.id,
+                section_id: this.currentSection.id,
+                status: 'completed'
+            })
+        });
+        
+        document.getElementById('quizMode').style.display = 'none';
+        
+        // Check if more sections
+        if (this.currentSectionIndex < this.currentLesson.sections.length - 1) {
+            // Show next section button
+            const isMath = this.currentSubject === 'math';
+            if (isMath) {
+                this.addMessage('system', '✅ Section complete! Click "Next Section" to continue.', 'math');
+                document.getElementById('mathNextSectionBtn').style.display = 'inline-block';
+            } else {
+                this.addMessage('system', '✅ Section complete! Click "Next Section" to continue.', 'english');
+                document.getElementById('englishNextSectionBtn').style.display = 'inline-block';
+            }
+        } else {
+            // Lesson complete
+            this.completeLesson();
+        }
+    }
+    
+    nextSection() {
+        this.loadSection(this.currentSectionIndex + 1);
+    }
+    
+    async completeLesson() {
+        // Calculate time spent
+        const timeSpent = Math.round((Date.now() - this.lessonStartTime) / 60000);
+        
+        // Add time
+        await fetch('/api/progress/add-time', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({
+                user_id: this.userId,
+                grade: this.currentGrade,
+                subject: this.currentSubject,
+                lesson_id: this.currentLesson.id,
+                minutes: timeSpent
+            })
+        });
+        
+        // Complete lesson
+        const response = await fetch('/api/progress/complete-lesson', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({
+                user_id: this.userId,
+                grade: this.currentGrade,
+                subject: this.currentSubject,
+                lesson_id: this.currentLesson.id
+            })
+        });
+        
+        const data = await response.json();
+        
+        if (data.code === 0) {
+            const progress = data.data.progress;
+            
+            // Show completion screen
+            document.getElementById('mathLessonView').style.display = 'none';
+            document.getElementById('englishLessonView').style.display = 'none';
+            document.getElementById('lessonComplete').style.display = 'flex';
+            
+            document.getElementById('finalScore').textContent = progress.total_score + '%';
+            document.getElementById('questionsCorrect').textContent = 
+                `${Object.values(progress.questions_answered).filter(q => q.correct).length}/${progress.total_questions}`;
+            document.getElementById('timeSpentLesson').textContent = progress.time_spent_minutes + ' min';
+            
+            // Show next lessons if available
+            if (this.currentLesson.next_lessons && this.currentLesson.next_lessons.length > 0) {
+                document.getElementById('nextLessonsSuggestions').innerHTML = `
+                    <h3>📚 Recommended Next Lessons:</h3>
+                    ${this.currentLesson.next_lessons.map(l => `<div class="next-lesson-item">${l}</div>`).join('')}
+                `;
+            }
+        }
+    }
+    
+    closeLesson() {
+        document.getElementById('lessonModal').style.display = 'none';
+        this.currentLesson = null;
+    }
+    
+    reviewLesson() {
+        // Reset to first section for review
+        this.currentSectionIndex = 0;
+        this.loadSection(0);
+    }
+    
+    async showDashboard() {
+        try {
+            const response = await fetch(`/api/progress/dashboard?user_id=${this.userId}`);
+            const data = await response.json();
+            
+            if (data.code === 0) {
+                const stats = data.data.stats;
+                
+                document.getElementById('lessonsCompleted').textContent = stats.lessons_completed;
+                document.getElementById('sectionsCompleted').textContent = stats.sections_completed;
+                document.getElementById('accuracy').textContent = stats.accuracy + '%';
+                document.getElementById('timeSpent').textContent = stats.time_spent_minutes;
+                
+                document.getElementById('dashboardModal').style.display = 'block';
+            }
+        } catch (error) {
+            console.error('Error loading dashboard:', error);
+            this.showError('Failed to load dashboard');
+        }
+    }
+    
+    showError(message) {
+        alert(message);
+    }
+}
+
+// Initialize app when page loads
+document.addEventListener('DOMContentLoaded', () => {
+    window.lessonApp = new LessonApp();
+});

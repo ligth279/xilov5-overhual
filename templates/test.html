@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Xilo AI Tutor</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/base.css') }}">
+</head>
+<body>
+  <header class="header">
+    <div class="header-content">
+      <div class="header-left">
+        <a href="/" class="logo">Xilo AI Tutor</a>
+      </div>
+      <div>
+        <button class="btn btn-secondary">Lessons</button>
+      </div>
+    </div>
+  </header>
+
+  <main class="container" style="padding-top: 2rem;">
+    <div class="card">
+      <h1>Welcome to Xilo AI Tutor</h1>
+      <p class="text-secondary">Your AI-powered learning companion</p>
+      
+      <div style="margin-top: 2rem;">
+        <h3>Test Elements</h3>
+        <div style="display: flex; gap: 1rem; margin-top: 1rem;">
+          <button class="btn btn-primary">Primary Button</button>
+          <button class="btn btn-secondary">Secondary Button</button>
+        </div>
+        
+        <div style="margin-top: 1.5rem;">
+          <label style="display: block; margin-bottom: 0.5rem; font-weight: 500;">Test Input</label>
+          <input type="text" placeholder="Type something..." />
+        </div>
+        
+        <div style="margin-top: 1rem;">
+          <label style="display: block; margin-bottom: 0.5rem; font-weight: 500;">Test Select</label>
+          <select>
+            <option>Option 1</option>
+            <option>Option 2</option>
+          </select>
+        </div>
+      </div>
+    </div>
+  </main>
+</body>
+</html>

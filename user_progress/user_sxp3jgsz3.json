@@ -1,0 +1,68 @@
+{
+  "user_id": "user_sxp3jgsz3",
+  "created_at": "2025-11-09T19:00:56.642803",
+  "last_active": "2025-12-02T21:45:01.571571",
+  "lessons": {
+    "grade_5/english/poetry_basics": {
+      "grade": "grade_5",
+      "subject": "english",
+      "lesson_id": "poetry_basics",
+      "status": "in_progress",
+      "started_at": "2025-11-09T19:00:56.642803",
+      "completed_at": null,
+      "current_section": "section_1",
+      "sections_completed": [
+        "section_1"
+      ],
+      "questions_answered": {
+        "q1": {
+          "correct": true,
+          "attempts": 211,
+          "hints_used": 15,
+          "first_attempt_correct": false,
+          "answered_at": "2025-11-09T19:13:57.140022"
+        },
+        "q2": {
+          "correct": true,
+          "attempts": 17,
+          "hints_used": 1,
+          "first_attempt_correct": false,
+          "answered_at": "2025-11-09T19:17:41.680078"
+        }
+      },
+      "total_score": 0,
+      "total_questions": 0,
+      "time_spent_minutes": 0
+    },
+    "grade_5/math/fractions_basic": {
+      "grade": "grade_5",
+      "subject": "math",
+      "lesson_id": "fractions_basic",
+      "status": "in_progress",
+      "started_at": "2025-11-09T19:13:05.721027",
+      "completed_at": null,
+      "current_section": "section_1",
+      "sections_completed": [],
+      "questions_answered": {
+        "q1": {
+          "correct": true,
+          "attempts": 1,
+          "hints_used": 0,
+          "first_attempt_correct": true,
+          "answered_at": "2025-12-02T20:36:32.931180"
+        }
+      },
+      "total_score": 0,
+      "total_questions": 0,
+      "time_spent_minutes": 0
+    }
+  },
+  "stats": {
+    "total_lessons_started": 2,
+    "total_lessons_completed": 0,
+    "total_sections_completed": 1,
+    "total_questions_answered": 229,
+    "total_questions_correct": 3,
+    "total_time_minutes": 0
+  }
+}

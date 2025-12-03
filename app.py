@@ -134,6 +134,11 @@ def index():
     """Main page"""
     return render_template('index.html')
 
+@app.route('/test')
+def test_design():
+    """Test page for design verification"""
+    return render_template('test.html')
+
 @app.route('/lessons')
 def lessons():
     """Lessons page"""
