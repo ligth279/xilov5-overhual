@@ -427,14 +427,14 @@ class LessonsApp {
     document.querySelector('.left-pane').style.flex = '1';
     document.querySelector('.left-pane').style.borderRight = 'none';
     
-    // Mark as completed in localStorage
+    // Mark as completed in sessionStorage
     const progress = {
       lessonId: this.currentLesson.id,
       currentSection: this.currentLesson.data.sections.length,
       completed: true,
       completedAt: Date.now()
     };
-    localStorage.setItem(`lesson_progress_${this.currentLesson.id}`, JSON.stringify(progress));
+    sessionStorage.setItem(`lesson_progress_${this.currentLesson.id}`, JSON.stringify(progress));
     
     // Save progress to backend
     try {
@@ -528,16 +528,63 @@ class LessonsApp {
       completed: false,
       lastAccessed: Date.now()
     };
-    localStorage.setItem(`lesson_progress_${this.currentLesson.id}`, JSON.stringify(progress));
+    sessionStorage.setItem(`lesson_progress_${this.currentLesson.id}`, JSON.stringify(progress));
   }
 
   getProgress(lessonId) {
-    const stored = localStorage.getItem(`lesson_progress_${lessonId}`);
+    const stored = sessionStorage.getItem(`lesson_progress_${lessonId}`);
     return stored ? JSON.parse(stored) : null;
+  }
+
+  // Mobile keyboard handling
+  initMobileKeyboardFix() {
+    const doubtInput = document.getElementById('doubtInput');
+    const answerInput = document.getElementById('answerInput');
+    
+    if (!doubtInput && !answerInput) return;
+
+    // Scroll input into view when keyboard appears
+    const handleFocus = (e) => {
+      setTimeout(() => {
+        e.target.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      }, 300); // Wait for keyboard animation
+    };
+
+    if (doubtInput) {
+      doubtInput.addEventListener('focus', handleFocus);
+    }
+    if (answerInput) {
+      answerInput.addEventListener('focus', handleFocus);
+    }
+
+    // Adjust viewport when keyboard appears (iOS fix)
+    if (/iPhone|iPad|iPod/.test(navigator.userAgent)) {
+      const viewportMeta = document.querySelector('meta[name="viewport"]');
+      const originalContent = viewportMeta.content;
+
+      const handleInputFocus = () => {
+        viewportMeta.content = 'width=device-width, initial-scale=1, maximum-scale=1';
+      };
+
+      const handleInputBlur = () => {
+        viewportMeta.content = originalContent;
+      };
+
+      if (doubtInput) {
+        doubtInput.addEventListener('focus', handleInputFocus);
+        doubtInput.addEventListener('blur', handleInputBlur);
+      }
+      if (answerInput) {
+        answerInput.addEventListener('focus', handleInputFocus);
+        answerInput.addEventListener('blur', handleInputBlur);
+      }
+    }
   }
 }
 
 // Initialize
 document.addEventListener('DOMContentLoaded', () => {
-  new LessonsApp();
+  const app = new LessonsApp();
+  app.initMobileKeyboardFix();
 });
+

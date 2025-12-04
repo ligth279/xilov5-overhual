@@ -398,6 +398,274 @@
   }
 }
 
+/* Mobile Responsive (< 768px) */
+@media (max-width: 767px) {
+  .lessons-page {
+    padding: 0.75rem;
+  }
+
+  .lessons-header h1 {
+    font-size: 1.5rem;
+  }
+
+  .filters-section {
+    flex-direction: column;
+    gap: 0.75rem;
+  }
+
+  .filters-section select {
+    width: 100%;
+    font-size: 16px; /* Prevents iOS zoom */
+    min-height: 48px; /* Touch-friendly */
+  }
+
+  .lessons-grid {
+    grid-template-columns: 1fr;
+    gap: 0.75rem;
+  }
+
+  .lesson-card {
+    padding: 1rem;
+  }
+
+  .lesson-card h3 {
+    font-size: 1.125rem;
+  }
+
+  /* Full-screen modal on mobile */
+  .modal-container {
+    width: 100%;
+    height: 100vh;
+    max-height: 100vh;
+    margin: 0;
+    border-radius: 0;
+    padding: 0;
+  }
+
+  .modal-header {
+    padding: 1rem;
+    border-radius: 0;
+  }
+
+  .modal-header h2 {
+    font-size: 1.25rem;
+  }
+
+  .close-modal {
+    width: 40px;
+    height: 40px;
+    font-size: 1.5rem;
+  }
+
+  /* Stack split view on mobile */
+  .split-container {
+    flex-direction: column;
+    height: calc(100vh - 65px);
+  }
+
+  .left-pane {
+    flex: 1;
+    min-height: 60%;
+    border-right: none;
+    border-bottom: 1px solid var(--border-color);
+  }
+
+  .right-pane {
+    flex: 0 0 auto;
+    max-height: 40%;
+    min-height: 200px;
+  }
+
+  /* Lesson content */
+  .lesson-content {
+    padding: 1rem;
+  }
+
+  .lesson-content h3 {
+    font-size: 1.25rem;
+  }
+
+  .section-nav {
+    gap: 0.5rem;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .section-btn {
+    min-width: 48px; /* Touch-friendly */
+    min-height: 48px;
+    font-size: 0.875rem;
+  }
+
+  /* Quiz view */
+  .quiz-view {
+    padding: 1rem;
+  }
+
+  .quiz-view h3 {
+    font-size: 1.125rem;
+  }
+
+  .question-text {
+    font-size: 1rem;
+  }
+
+  .answer-input {
+    font-size: 16px; /* Prevents iOS zoom */
+    min-height: 48px;
+    padding: 0.875rem;
+  }
+
+  .quiz-actions {
+    flex-direction: column;
+    gap: 0.75rem;
+  }
+
+  .quiz-actions .btn {
+    width: 100%;
+    min-height: 48px; /* Touch-friendly */
+    font-size: 1rem;
+  }
+
+  /* Feedback */
+  .feedback {
+    padding: 0.875rem;
+    font-size: 0.9375rem;
+  }
+
+  /* Doubt chat */
+  .doubt-chat {
+    padding: 0.75rem;
+    display: flex;
+    flex-direction: column;
+    min-height: 200px;
+    max-height: 40vh; /* Limit height to leave room for keyboard */
+  }
+
+  .doubt-messages {
+    padding: 0.5rem;
+    gap: 0.75rem;
+    flex: 1;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch; /* Smooth scrolling on iOS */
+  }
+
+  .doubt-message {
+    max-width: 85%;
+  }
+
+  .doubt-message-avatar {
+    width: 28px;
+    height: 28px;
+    font-size: 0.75rem;
+  }
+
+  .doubt-message-content {
+    padding: 0.75rem;
+    font-size: 0.9375rem;
+  }
+
+  .doubt-input-area {
+    padding: 0.75rem;
+    background: var(--bg-secondary);
+    position: sticky;
+    bottom: 0;
+    z-index: 10;
+  }
+
+  .doubt-input-wrapper {
+    display: flex;
+    gap: 0.5rem;
+  }
+
+  .doubt-input-wrapper textarea {
+    font-size: 16px; /* Prevents iOS zoom */
+    min-height: 48px;
+    max-height: 100px;
+    flex: 1;
+  }
+
+  .doubt-input-wrapper .btn {
+    min-width: 48px;
+    min-height: 48px;
+    padding: 0.875rem 1rem;
+    flex-shrink: 0;
+  }
+
+  /* Fix for keyboard covering input on mobile */
+  .right-pane {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+  }
+
+  .doubt-chat {
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+  }
+
+  /* Completion view */
+  .completion-view {
+    padding: 1.5rem 1rem;
+  }
+
+  .completion-view h2 {
+    font-size: 1.5rem;
+  }
+
+  .completion-stats {
+    flex-direction: column;
+    gap: 0.75rem;
+  }
+
+  .stat-item {
+    padding: 1rem;
+  }
+
+  /* Hide scrollbars on mobile for cleaner look */
+  .doubt-messages::-webkit-scrollbar,
+  .section-nav::-webkit-scrollbar {
+    display: none;
+  }
+
+  .doubt-messages,
+  .section-nav {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+}
+
+/* Small phones (< 375px) */
+@media (max-width: 374px) {
+  .lessons-page {
+    padding: 0.5rem;
+  }
+
+  .lessons-header h1 {
+    font-size: 1.25rem;
+  }
+
+  .lesson-card {
+    padding: 0.875rem;
+  }
+
+  .modal-header h2 {
+    font-size: 1.125rem;
+  }
+
+  .section-btn {
+    min-width: 44px;
+    font-size: 0.8125rem;
+    padding: 0.5rem 0.75rem;
+  }
+
+  .btn {
+    font-size: 0.9375rem;
+    padding: 0.75rem 1rem;
+  }
+}
+
 @media (max-width: 640px) {
   .filters-section {
     flex-direction: column;
@@ -430,3 +698,4 @@
     transform: translateY(0);
   }
 }
+

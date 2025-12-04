@@ -34,12 +34,12 @@
         },
         {
           "id": "q2",
-          "question": "In the example poem, which word rhymes with 'blue'?",
-          "answer": "you",
-          "evaluation_criteria": ["you"],
+          "question": "Look at this poem:\n\n*The bird flew high in the sky,*\n*With wings spread far and wide.*\n*It sang a song, then said goodbye,*\n*And found a tree to hide.*\n\nWhich word rhymes with 'sky'?",
+          "answer": "goodbye",
+          "evaluation_criteria": ["goodbye", "good bye"],
           "hints": [
-            "Look at the end of each line",
-            "It comes at the end of the last line"
+            "Look for words ending with the same sound as 'sky'",
+            "It's in the third line of the poem"
           ]
         }
       ]
@@ -56,11 +56,12 @@
         {
           "id": "q3",
           "question": "If a poem has lines ending with 'day', 'night', 'play', 'bright', what is the rhyme scheme?",
-          "answer": "AABB",
-          "evaluation_criteria": ["AABB", "aabb"],
+          "answer": "ABAB",
+          "evaluation_criteria": ["ABAB", "abab"],
           "hints": [
             "day and play rhyme (both get A)",
-            "night and bright rhyme (both get B)"
+            "night and bright rhyme (both get B)",
+            "Look at which lines rhyme with each other"
           ]
         },
         {

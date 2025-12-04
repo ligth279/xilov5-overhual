@@ -273,3 +273,134 @@ input:focus, select:focus, textarea:focus {
   border-radius: 0.25rem;
   margin-left: 0.25rem;
 }
+
+/* Mobile Responsive (< 768px) */
+@media (max-width: 767px) {
+  body {
+    font-size: 15px;
+  }
+
+  /* Header */
+  .header {
+    padding: 0.75rem 0;
+  }
+
+  .header-content {
+    flex-direction: column;
+    gap: 0.75rem;
+  }
+
+  .header-left {
+    width: 100%;
+    justify-content: center;
+  }
+
+  .header-right {
+    width: 100%;
+    justify-content: center;
+    flex-wrap: wrap;
+  }
+
+  .logo {
+    font-size: 1.125rem;
+  }
+
+  /* Typography */
+  h1 { font-size: 1.75rem; }
+  h2 { font-size: 1.375rem; }
+  h3 { font-size: 1.125rem; }
+
+  /* Buttons - Touch-friendly */
+  .btn {
+    min-height: 44px;
+    padding: 0.75rem 1rem;
+    font-size: 0.9375rem;
+  }
+
+  .btn-sm {
+    min-height: 40px;
+    padding: 0.625rem 0.875rem;
+    font-size: 0.875rem;
+  }
+
+  /* Form inputs - Touch-friendly + prevent iOS zoom */
+  input[type="text"],
+  input[type="email"],
+  input[type="password"],
+  input[type="number"],
+  input[type="search"],
+  textarea,
+  select {
+    min-height: 48px;
+    font-size: 16px;
+    padding: 0.875rem;
+  }
+
+  select {
+    padding-right: 2.5rem;
+  }
+
+  .select-sm {
+    min-height: 44px;
+    font-size: 16px;
+    padding: 0.625rem 2rem 0.625rem 0.75rem;
+  }
+
+  /* Language selector */
+  .language-selector {
+    flex-wrap: wrap;
+    gap: 0.5rem;
+  }
+
+  .language-selector select {
+    min-width: 140px;
+  }
+
+  /* Toggle switches */
+  .toggle-wrapper {
+    gap: 0.5rem;
+  }
+
+  .toggle-label {
+    min-height: 44px;
+  }
+
+  /* Container spacing */
+  .container {
+    padding: 0 0.75rem;
+  }
+}
+
+/* Small phones (< 375px) */
+@media (max-width: 374px) {
+  body {
+    font-size: 14px;
+  }
+
+  .header-left {
+    gap: 0.5rem;
+  }
+
+  .logo {
+    font-size: 1rem;
+  }
+
+  h1 { font-size: 1.5rem; }
+  h2 { font-size: 1.25rem; }
+
+  .btn {
+    padding: 0.75rem 0.875rem;
+    font-size: 0.875rem;
+  }
+
+  .language-selector {
+    flex-direction: column;
+    width: 100%;
+  }
+
+  .language-selector select,
+  .language-selector .toggle-wrapper {
+    width: 100%;
+  }
+}
+

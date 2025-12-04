@@ -11,6 +11,7 @@ os.environ['BIGDL_IMPORT_IPEX'] = 'False'
 
 from apiflask import APIFlask
 from flask import render_template, request, jsonify, Response, stream_with_context
+from flask_cors import CORS
 import logging
 import json
 import time
@@ -42,6 +43,19 @@ logger = logging.getLogger(__name__)
 # Initialize APIFlask (AI Playground pattern)
 app = APIFlask(__name__)
 app.config.from_object(Config)
+
+# Configure CORS for Cloudflare Tunnel and local development
+CORS(app, resources={
+    r"/*": {
+        "origins": [
+            "http://localhost:5000",
+            "http://127.0.0.1:5000",
+            "https://*.trycloudflare.com"
+        ],
+        "methods": ["GET", "POST", "OPTIONS"],
+        "allow_headers": ["Content-Type"]
+    }
+})
 
 # Global model status (AI Playground pattern)
 model_status = {

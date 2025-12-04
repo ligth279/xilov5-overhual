@@ -72,9 +72,11 @@ class ChatApp {
       // Add language settings if available
       if (this.languageSelect) {
         body.language = this.languageSelect.value;
+        body.target_language = this.languageSelect.value;
       }
       if (this.translationMode) {
-        body.translation_mode = this.translationMode.checked ? 'ai' : 'deep';
+        // unchecked = deep (google), checked = ai (direct)
+        body.translation_mode = this.translationMode.checked ? 'direct' : 'google';
       }
       
       const response = await fetch('/api/chat', {
@@ -161,9 +163,36 @@ class ChatApp {
   scrollToBottom() {
     this.messages.scrollTop = this.messages.scrollHeight;
   }
+
+  // Mobile keyboard handling
+  initMobileKeyboardFix() {
+    const input = this.input;
+    
+    // Scroll input into view when keyboard appears
+    input.addEventListener('focus', () => {
+      setTimeout(() => {
+        input.scrollIntoView({ behavior: 'smooth', block: 'end' });
+      }, 300); // Wait for keyboard animation
+    });
+
+    // iOS viewport fix
+    if (/iPhone|iPad|iPod/.test(navigator.userAgent)) {
+      const viewportMeta = document.querySelector('meta[name="viewport"]');
+      const originalContent = viewportMeta.content;
+
+      input.addEventListener('focus', () => {
+        viewportMeta.content = 'width=device-width, initial-scale=1, maximum-scale=1';
+      });
+
+      input.addEventListener('blur', () => {
+        viewportMeta.content = originalContent;
+      });
+    }
+  }
 }
 
 // Initialize when DOM is ready
 document.addEventListener('DOMContentLoaded', () => {
-  new ChatApp();
+  const app = new ChatApp();
+  app.initMobileKeyboardFix();
 });

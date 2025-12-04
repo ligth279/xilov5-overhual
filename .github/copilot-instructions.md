@@ -3,213 +3,116 @@
 This project is an AI tutor website with dual-model architecture optimized for Intel GPU with XMX engines.
 
 ### Key Features:
-- Intel XPU optimization with PyTorch
-- Dual-model architecture (Phi 3.5 + Mistral 7B)
+- Intel Arc GPU optimization with Vulkan (llama.cpp)
+- Single unified model architecture (user chooses at startup)
 - Web-based interface with lesson system
-- GPU-accelerated inference with 4-bit quantization
+- GGUF quantized models (Q4_K_S to Q8_0)
 
 ### Architecture:
-- **Backend**: Flask with Intel XPU PyTorch + IPEX-LLM
+- **Backend**: Flask with llama.cpp + Vulkan GPU acceleration
 - **Frontend**: HTML/CSS/JavaScript with split-view lesson interface
-- **Models**: 
-  - **Phi 3.5 Mini (3.8B)**: General chat and doubt clearing (STATEFUL - stores last 3 conversations)
-  - **Mistral 7B**: Answer evaluation and hint generation (STATELESS - no conversation history)
-- **Hardware**: Intel Arc GPU with XMX engines (Battlemage B580)
+- **Models** (choose one via `--model` flag):
+  - **GPT-OSS 20B** (Q8_0, 11.28GB): Reasoning model with chain-of-thought (default)
+  - **Llama 3.1 8B** (Q5_K_S, 5.21GB): Fast direct responses
+  - **Mistral 7B** (Q4_K_S, 3.86GB): Lightweight instruction-following
+- **Hardware**: Intel Arc B580 (12GB dedicated + 8GB shared = 20GB total)
 
-### Model Memory Management:
+### Model Architecture (v5.09.5):
 
-#### Phi 3.5 Mini (3.8B) - STATEFUL CHAT
-- **Purpose**: General tutoring chat, doubt clearing (Phase 2)
-- **Conversation History**: Stores last 3 user/assistant exchanges for context
-- **Memory**: KV cache persists across turns within a session
-- **Why**: Students need conversational context ("What did we just discuss?")
-- **VRAM**: ~4-6 GB (base model + KV cache for 3 turns)
+**Single Unified Model System:**
+- User chooses ONE model at startup: `python app.py --model gptoss|llama31|mistral`
+- Selected model handles ALL tasks:
+  - General chat / doubt clearing
+  - Answer evaluation
+  - Hint generation
+  
+**Model Details:**
 
-#### Mistral 7B - STATELESS HINTS
-- **Purpose**: Answer evaluation, hint generation (Phase 3)
-- **Conversation History**: None - each hint is independent
-- **Memory**: KV cache cleared after each hint generation
-- **Why**: Hints don't need conversation context - just question + answer + proximity
-- **VRAM**: ~6-8 GB during generation, cache cleared immediately after
-- **Memory Leak Prevention**:
-  - `torch.no_grad()` wraps all generation
-  - `del outputs, inputs` after use
-  - `gc.collect()` + `torch.xpu.empty_cache()` after each hint
-  - Phi model offloaded to CPU during Mistral generation
+#### GPT-OSS 20B (Default - Reasoning Model)
+- **File**: `gpt-oss-20b-Q8_0.gguf` (11.28 GB)
+- **Backend**: llama.cpp with Vulkan
+- **Performance**: 4-7 tok/s on Intel Arc B580
+- **VRAM**: 13.9GB during generation
+- **Capabilities**: 
+  - Chain-of-thought reasoning (shows internal thinking)
+  - Extracts final answer from reasoning
+  - Best for complex problem-solving
+- **Conversation History**: None (stateless by default)
+- **Format**: Native GPT-OSS tags (`<|start|>assistant<|channel|>final<|message|>`)
 
-#### Critical Memory Differences:
-1. **Phi Chat Flow**:
-   ```python
-   # Turn 1: "What is photosynthesis?"
-   phi.generate(prompt1, history=[])  # KV cache: Turn 1
-   
-   # Turn 2: "Can you explain more?"
-   phi.generate(prompt2, history=[turn1])  # KV cache: Turn 1 + Turn 2
-   
-   # Turn 3: "Give me an example"
-   phi.generate(prompt3, history=[turn1, turn2])  # KV cache: Turn 1 + 2 + 3
-   
-   # Turn 4: "What about animals?"
-   phi.generate(prompt4, history=[turn2, turn3])  # KV cache: Turn 2 + 3 + 4 (Turn 1 dropped)
-   ```
+#### Llama 3.1 8B (Fast Direct Model)
+- **File**: `Meta-Llama-3.1-8B-Instruct-Q5_K_S.gguf` (5.21 GB)
+- **Backend**: llama.cpp with Vulkan
+- **Performance**: 6-10 tok/s on Intel Arc B580
+- **VRAM**: 8-9GB during generation
+- **Capabilities**: 
+  - Direct answers (no reasoning chains)
+  - Good for general tutoring
+  - Fast responses
+- **Conversation History**: Optional (can store last 3 exchanges)
+- **Format**: Llama 3 chat template (auto-detected from GGUF)
 
-2. **Mistral Hint Flow**:
-   ```python
-   # Hint 1: Student answers "line"
-   mistral.generate("Q: stanza, A: line")  # KV cache built
-   # → Hint generated
-   # → torch.xpu.empty_cache()  # KV cache CLEARED
-   
-   # Hint 2: Student answers "verse"  
-   mistral.generate("Q: stanza, A: verse")  # Fresh KV cache, no history
-   # → Hint generated
-   # → torch.xpu.empty_cache()  # KV cache CLEARED again
-   ```
+#### Mistral 7B (Lightweight Model)
+- **File**: `Mistral-7B-Instruct-v0.3-Q4_K_S.gguf` (3.86 GB)
+- **Backend**: llama.cpp with Vulkan
+- **Performance**: 8-12 tok/s on Intel Arc B580
+- **VRAM**: 4-5GB during generation
+- **Capabilities**: 
+  - Lightweight instruction-following
+  - Fastest inference
+  - Good for simple Q&A
+- **Conversation History**: Optional (can store last 3 exchanges)
+- **Format**: Mistral Instruct tags (`[INST] ... [/INST]`)
 
-### VRAM Usage Patterns:
+**Key Differences from v5.08:**
+- ❌ No more dual-model system (Phi + Mistral)
+- ❌ No more PyTorch/IPEX-LLM
+- ❌ No more model offloading between CPU/GPU
+- ✅ Single model instance per session (simpler, more stable)
+- ✅ llama.cpp with Vulkan (more compatible, easier setup)
+- ✅ User chooses model based on needs (speed vs quality)
 
-**Normal Operation (20GB total: 12GB dedicated + 8GB shared):**
-```
-Idle State:
-├─ Phi 3.5 (GPU):          4-6 GB  (with 3-turn KV cache)
-├─ Mistral 7B (GPU):       6-8 GB  (idle)
-├─ PyTorch overhead:       2-3 GB
-└─ Total:                 12-17 GB ✅
+### Setup Requirements (v5.09.5):
+- Intel Arc GPU (B580 with 12GB+ VRAM recommended)
+- llama.cpp with Vulkan support (installed via WinGet)
+- Python 3.11+ with Flask
+- GGUF model files (downloaded from AI Playground or HuggingFace)
 
-During Chat (Phi active):
-├─ Phi 3.5 (GPU):          6-8 GB  (generating + KV cache)
-├─ Mistral 7B (GPU):       6-8 GB  (idle)
-├─ PyTorch overhead:       2-3 GB
-└─ Total:                 14-19 GB ✅ (may touch shared RAM)
-
-During Hint Generation (Mistral active):
-├─ Phi 3.5 (CPU):          0 GB    (offloaded to system RAM)
-├─ Mistral 7B (GPU):       8-10 GB (generating + KV cache)
-├─ PyTorch overhead:       2-3 GB
-└─ Total:                 10-13 GB ✅ (under 12GB dedicated!)
-```
-
-### Memory Leak Prevention (Mistral Only):
-
-**Why Mistral needs aggressive cleanup but Phi doesn't:**
-- Phi: KV cache is intentionally kept for conversation continuity
-- Mistral: KV cache must be cleared to prevent accumulation across multiple student requests
-
-**Mistral Cleanup Strategy:**
-```python
-# Before generation:
-gc.collect()
-torch.xpu.empty_cache()
-self.phi_model.model.to('cpu')  # Offload Phi
-
-# During generation:
-with torch.no_grad():  # Prevent gradient accumulation
-    outputs = model.generate(...)
-
-# After generation:
-del outputs, inputs  # Delete tensors
-gc.collect() × 3     # Force garbage collection
-torch.xpu.empty_cache()  # Clear GPU cache
-self.phi_model.model.to('xpu')  # Restore Phi
-```
-
-### Setup Requirements:
-- Intel GPU with XMX engines (Arc/Battlemage)
-- PyTorch 2.6+ with XPU support
-- ipex-llm with 4-bit quantization
-- Both model files cached locally
-
-### Project Status:
+### Project Status (v5.09.5):
 ✅ Project structure created
-✅ Dependencies installed successfully
-✅ Intel GPU PyTorch integration working
-✅ Dual-model system implemented
+✅ llama.cpp with Vulkan backend integrated
+✅ Single unified model system (user selects at startup)
 ✅ Web interface fully functional
 ✅ 3-phase lesson flow (Explanation → Doubt Clearing → Assessment)
 ✅ Multilingual support (13 languages)
 ✅ AI-powered hints with spell check
-✅ Progress tracking system
-✅ Memory leak prevention (Mistral)
-✅ Phi offloading during Mistral generation
+✅ Progress tracking system (sessionStorage - tab-scoped)
+✅ Git branch v5.09.5 pushed to GitHub
 🚀 **Xilo AI Tutor running at http://localhost:5000**
 
-### Model Integration Details:
-
-#### Phi 3.5 Mini (3.8B)
-- **Purpose**: General tutoring chat, doubt clearing (Phase 2)
-- **Strengths**: Fast responses, conversational, good for simple Q&A
-- **Limitations**: Not reliable for strict answer evaluation or complex logic
-- **Optimization**: ipex-llm 4-bit quantization, eager attention
-- **VRAM**: ~4-6 GB
-- **Conversation History**: Last 3 turns stored for context
-
-#### Mistral 7B (NEW)
-- **Purpose**: Answer evaluation, hint generation (Phase 3)
-- **Strengths**: More accurate categorization, better instruction following, reliable hints
-- **Format**: Uses `[INST]` tags (not chat template like Phi)
-- **Optimization**: ipex-llm 4-bit quantization
-- **VRAM**: ~6-8 GB during generation, cache cleared after
-- **Conversation History**: None - stateless, each hint is independent
-- **Why Added**: Phi 3.5 was inconsistent with answer evaluation—giving wrong hints, revealing answers, not following instructions
-
-#### Critical Differences Between Models:
-1. **Prompt Format**:
-   - Phi 3.5: Chat template with roles (system/user/assistant)
-   - Mistral: `<s>[INST] {prompt} [/INST]` instruction format
-   
-2. **Temperature**:
-   - Phi 3.5: Dynamic (0.1-0.7 based on question type)
-   - Mistral: Low (0.35) for consistent evaluation
-   
-3. **Token Limits**:
-   - Phi 3.5: Dynamic (50-1024 based on question complexity)
-   - Mistral: Fixed (150 for pedagogical hints)
-   
-4. **Use Cases**:
-   - Phi 3.5: Open-ended chat, explanations, teaching (STATEFUL)
-   - Mistral: Precise categorization, grading, structured output (STATELESS)
-
-5. **Memory Management**:
-   - Phi 3.5: KV cache persists for 3 turns (intentional)
-   - Mistral: KV cache cleared after every hint (memory leak prevention)
-
-### Import Order (CRITICAL for PyTorch 2.6):
-```python
-# 1. Import torch FIRST
-import torch
-
-# 2. Then import ipex_llm
-from ipex_llm.transformers import AutoModelForCausalLM
-
-# DO NOT import torch at module level - causes IPEX conflicts
-```
-
-### Known Issues & Solutions:
-- ❌ **Issue**: Phi 3.5 gives inaccurate hints, reveals answers
-  - ✅ **Solution**: Use Mistral 7B for evaluation tasks
-  
-- ❌ **Issue**: AI ignoring prompt instructions
-  - ✅ **Solution**: Simpler prompts + lower temperature (0.35) + larger model
-  
-- ❌ **Issue**: Spelling hints mention wrong letters
-  - ✅ **Solution**: Rule-based character comparison before AI (80% similarity check)
-
-- ❌ **Issue**: Memory leak after multiple hint generations
-  - ✅ **Solution**: Aggressive cleanup (gc.collect() × 3, torch.xpu.empty_cache(), del tensors)
-
-- ❌ **Issue**: OUT_OF_RESOURCES error during hint generation
-  - ✅ **Solution**: Offload Phi to CPU during Mistral generation
+### Current Architecture:
+- **Backend**: Flask + llama.cpp server (subprocess)
+- **Model Loading**: One model at a time (gptoss OR llama31 OR mistral)
+- **Processing**: Sequential (one request at a time)
+- **VRAM**: Single model instance (no offloading needed)
+- **Conversation**: Optional history (last 3 exchanges for context)
+### Known Issues & Solutions (v5.09.5):
+- ✅ **llama.cpp Vulkan backend** - Stable, no memory leaks
+- ✅ **Single model architecture** - No offloading complexity
+- ✅ **GGUF quantization** - Optimized for memory efficiency
+- ⚠️ **Sequential processing** - One request at a time (queue needed for multiple users)
+- 🔧 **GPT-OSS reasoning extraction** - Not yet implemented (strips reasoning by default)
 
 ### Answer Evaluation Flow:
 1. **Spelling Check** (Rule-based): 80%+ character similarity → "Check your spelling"
-2. **AI Categorization** (Mistral 7B): Related vs Unrelated
+2. **AI Categorization** (Unified Model): Related vs Unrelated
 3. **Related**: Explain their answer + give clue (no reveal)
 4. **Unrelated**: "That's not related to the topic. Please review the material and try again." → Close quiz
 
-### Development Notes:
-- Both models load sequentially (Phi first, then Mistral)
-- Answer evaluator checks Mistral first, falls back to Phi if unavailable
-- Total VRAM usage: ~12-17 GB idle, 10-13 GB during hints (Phi offloaded)
+### Development Notes (v5.09.5):
+- One model instance at a time (gptoss OR llama31 OR mistral)
+- No model offloading needed (single model)
+- VRAM usage: 4-14GB depending on model choice
 - Can run on Intel Arc B580 (12GB dedicated + 8GB shared = 20GB total)
-- Phi maintains conversation context (3 turns), Mistral does not
-- Memory cleanup only applied to Mistral (to prevent leaks), not Phi (intentional cache)
+- All models support optional conversation history (last 3 exchanges)
+- Progress tracking uses sessionStorage (tab-scoped, resets on close)
