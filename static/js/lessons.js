@@ -295,6 +295,9 @@ class LessonsApp {
     this.feedback.style.display = 'none';
     this.nextBtn.style.display = 'none';
     this.submitBtn.style.display = 'inline-block';
+    // Reset submit button state
+    this.submitBtn.disabled = false;
+    this.submitBtn.textContent = 'Submit Answer';
     this.attempts = 0;
   }
 
@@ -304,6 +307,10 @@ class LessonsApp {
     const userAnswer = this.answerInput.value.trim();
     
     if (!userAnswer) return;
+    
+    // Disable submit button to prevent multiple clicks
+    this.submitBtn.disabled = true;
+    this.submitBtn.textContent = 'Checking...';
 
     this.attempts++;
     
@@ -336,6 +343,9 @@ class LessonsApp {
       }
     } catch (err) {
       console.error('Failed to evaluate answer:', err);
+      // Re-enable button on error
+      this.submitBtn.disabled = false;
+      this.submitBtn.textContent = 'Submit Answer';
     }
   }
 
@@ -379,10 +389,20 @@ class LessonsApp {
         } else {
           // Show hint and allow retry
           this.showFeedback('warning', `💡 ${data.data.hint}\n\nTry again! (Attempt ${this.attempts}/${this.maxAttempts})`);
+          // Re-enable submit button for retry
+          this.submitBtn.disabled = false;
+          this.submitBtn.textContent = 'Submit Answer';
         }
+      } else {
+        // Fallback: always re-enable button if response is unexpected
+        this.submitBtn.disabled = false;
+        this.submitBtn.textContent = 'Submit Answer';
       }
     } catch (err) {
       console.error('Failed to get hint:', err);
+      // Re-enable button on error
+      this.submitBtn.disabled = false;
+      this.submitBtn.textContent = 'Submit Answer';
     }
   }
 
@@ -471,7 +491,8 @@ class LessonsApp {
           grade: this.currentLesson.grade,
           subject: this.currentLesson.subject,
           lesson_id: this.currentLesson.id,
-          section_id: section.id
+          section_id: section.id,
+          language: 'en'
         })
       });
 

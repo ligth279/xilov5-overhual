@@ -35,7 +35,7 @@ class MistralModel(BaseAIModel):
         """Initialize Mistral 7B model with Vulkan backend"""
         super().__init__(config)
         self.server_process = None
-        self.server_url = "http://localhost:8080"
+        self.server_url = "http://localhost:8081"
         # self.model_name inherited from BaseAIModel via config
         
         # Paths - Mistral 7B Instruct v0.3 (Q4_K_S quantization, 3.86GB)
@@ -59,7 +59,7 @@ class MistralModel(BaseAIModel):
             self.llama_server,
             "-m", self.model_path,
             "--host", "127.0.0.1",
-            "--port", "8080",
+            "--port", "8081",
             "-ngl", "99",  # Offload all layers to GPU
             "-c", "8192",  # Context window (Mistral supports 8k)
             "-t", "8",     # CPU threads for non-GPU ops

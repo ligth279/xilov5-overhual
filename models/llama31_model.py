@@ -35,7 +35,7 @@ class Llama31Model(BaseAIModel):
         """Initialize Llama 3.1 model with Vulkan backend"""
         super().__init__(config)
         self.server_process = None
-        self.server_url = "http://localhost:8080"
+        self.server_url = "http://localhost:8081"
         # self.model_name inherited from BaseAIModel via config
         
         # Paths - Llama 3.1 8B Instruct (Q5_K_S quantization, 5.21GB)
@@ -72,10 +72,12 @@ class Llama31Model(BaseAIModel):
             cmd = [
                 self.llama_server,
                 "-m", self.model_path,
-                "-c", "4096",        # Context size (Llama 3.1 supports 128K but 4K is enough)
-                "-ngl", "-1",        # GPU layers (all)
-                "--port", "8080",
-                "--host", "localhost"
+                "-c", "2048",        # Reduced context size to reduce GPU load
+                "-ngl", "32",        # All GPU layers (compute should handle this)
+                "--port", "8081",
+                "--host", "localhost",
+                "-b", "512",         # Batch size - smaller for stability
+                "--no-mmap"          # Disable memory mapping
             ]
             
             self.server_process = subprocess.Popen(
@@ -133,7 +135,8 @@ class Llama31Model(BaseAIModel):
             raise
     
     def generate_response(self, user_message, max_new_tokens=512, temperature=0.7, 
-                          top_p=0.9, system_prompt_override=None, conversation_history=None, **kwargs):
+                          top_p=0.9, system_prompt_override=None, conversation_history=None, 
+                          language_code='en', **kwargs):
         """
         Generate response using Llama 3.1 8B via llama-server
         
@@ -144,6 +147,7 @@ class Llama31Model(BaseAIModel):
             top_p: Nucleus sampling parameter
             system_prompt_override: Optional system prompt
             conversation_history: List of previous messages
+            language_code: Language for response (default: 'en')
             
         Returns:
             str: Generated response (direct answer, no reasoning)
@@ -152,14 +156,33 @@ class Llama31Model(BaseAIModel):
             return "Error: Model server not running"
         
         try:
+            # Check if server is still alive
+            if self.server_process.poll() is not None:
+                logger.warning("llama-server crashed! Attempting restart...")
+                try:
+                    self.is_loaded = False
+                    self.load_model()
+                    logger.info("Server restarted successfully")
+                except Exception as restart_error:
+                    logger.error(f"Failed to restart server: {restart_error}")
+                    return "Error: Model server crashed and could not be restarted. Please restart the application."
+            
             # Build prompt with Llama 3.1 format
             full_prompt = ""
             
-            # Add system prompt
+            # Add system prompt with language instruction
             if system_prompt_override:
-                full_prompt = f"<|begin_of_text|><|start_header_id|>system<|end_header_id|>\n\n{system_prompt_override}<|eot_id|>"
+                # Add language instruction to the system prompt
+                from utils.language_support import LanguageManager
+                lang_instruction = LanguageManager.LANGUAGE_INSTRUCTIONS.get(language_code, "")
+                system_text = f"{system_prompt_override}\n\n{lang_instruction}" if lang_instruction else system_prompt_override
+                full_prompt = f"<|begin_of_text|><|start_header_id|>system<|end_header_id|>\n\n{system_text}<|eot_id|>"
             else:
-                full_prompt = "<|begin_of_text|><|start_header_id|>system<|end_header_id|>\n\nYou are a helpful AI assistant.<|eot_id|>"
+                # Use language-specific system prompt
+                from utils.language_support import LanguageManager
+                lang_mgr = LanguageManager()
+                system_text = lang_mgr.get_system_prompt(language_code)
+                full_prompt = f"<|begin_of_text|><|start_header_id|>system<|end_header_id|>\n\n{system_text}<|eot_id|>"
             
             # Add conversation history
             if conversation_history:

@@ -34,7 +34,7 @@ class GPTOSSModel(BaseAIModel):
         """Initialize GPT-OSS model with Vulkan backend"""
         super().__init__(config)
         self.server_process = None
-        self.server_url = "http://localhost:8080"
+        self.server_url = "http://localhost:8081"
         self.model_name = "GPT-OSS 20B (Vulkan)"
         
         # Paths
@@ -70,7 +70,7 @@ class GPTOSSModel(BaseAIModel):
                 "-m", self.model_path,
                 "-c", "2048",        # Context size
                 "-ngl", "-1",        # GPU layers (all)
-                "--port", "8080",
+                "--port", "8081",
                 "--host", "localhost"
                 # No --chat-template needed: GGUF has embedded template
             ]

@@ -7,6 +7,7 @@ class ChatApp {
     this.status = document.getElementById('statusText');
     this.languageSelect = document.getElementById('languageSelect');
     this.translationMode = document.getElementById('translationMode');
+    this.currentLanguage = 'en'; // Track current language
     
     this.init();
   }
@@ -32,8 +33,18 @@ class ChatApp {
     // Language change feedback (only if element exists)
     if (this.languageSelect) {
       this.languageSelect.addEventListener('change', () => {
+        const newLang = this.languageSelect.value;
         const langName = this.languageSelect.options[this.languageSelect.selectedIndex].text;
-        this.setStatus(`Language: ${langName}`);
+        
+        // If language changed, clear conversation history
+        if (newLang !== this.currentLanguage) {
+          this.clearConversationHistory();
+          this.currentLanguage = newLang;
+          this.setStatus(`Language changed to ${langName} - Conversation reset`);
+        } else {
+          this.setStatus(`Language: ${langName}`);
+        }
+        
         setTimeout(() => this.setStatus('Ready'), 2000);
       });
     }
@@ -162,6 +173,14 @@ class ChatApp {
   
   scrollToBottom() {
     this.messages.scrollTop = this.messages.scrollHeight;
+  }
+  
+  clearConversationHistory() {
+    // Call backend to clear session memory
+    fetch('/api/chat/clear-history', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' }
+    }).catch(err => console.error('Failed to clear history:', err));
   }
 
   // Mobile keyboard handling

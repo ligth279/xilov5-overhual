@@ -294,6 +294,18 @@ def chat():
             "message": str(e)
         }), 500
 
+@app.post("/api/chat/clear-history")
+def clear_chat_history():
+    """Clear conversation history for current session (used when language changes)"""
+    try:
+        session_id = request.remote_addr
+        chat_memory.clear_session(session_id)
+        logger.info(f"Cleared conversation history for session {session_id}")
+        return jsonify({"code": 0, "message": "History cleared"})
+    except Exception as e:
+        logger.error(f"Error clearing history: {e}")
+        return jsonify({"code": -1, "message": str(e)}), 500
+
 @app.post("/api/chat/stream")
 def chat_stream():
     """Streaming chat endpoint (AI Playground SSE pattern)"""
@@ -553,14 +565,8 @@ def lesson_doubt_chat():
         section_id = data.get('section_id')
         session_id = data.get('session_id', request.remote_addr)
         
-        # Get language and translation settings
-        translation_mode = data.get('translation_mode', 'google')
-        target_language = data.get('target_language', 'en')
+        # Get language - doubt chat sends it directly, no translation mode needed
         language_code = data.get('language', 'en')
-        
-        # If using Google Translate mode, always generate in English
-        if translation_mode == 'google':
-            language_code = 'en'
         
         # Build context-aware system prompt with brevity guidelines
         context_prompt = "You are a helpful AI tutor. "
@@ -600,23 +606,13 @@ def lesson_doubt_chat():
         )
         generation_time = time.time() - start_time
         
-        # Translate response if using Google Translate mode
+        # No translation for doubt chat - AI generates directly in selected language
         final_response = response
-        if translation_mode == 'google' and target_language != 'en':
-            try:
-                from deep_translator import GoogleTranslator
-                translator = GoogleTranslator(source='en', target=target_language)
-                final_response = translator.translate(response)
-                logger.info(f"Translated lesson response to {target_language}")
-            except Exception as e:
-                logger.error(f"Translation error: {e}")
-                # Fall back to original response if translation fails
-                final_response = response
         
         # Save to lesson-specific chat memory
         chat_memory.add_message(lesson_session_id, user_message, final_response)
         
-        logger.info(f"Lesson doubt chat ({target_language}): {user_message[:50]}... -> Response in {generation_time:.2f}s")
+        logger.info(f"Lesson doubt chat ({language_code}): {user_message[:50]}... -> Response in {generation_time:.2f}s")
         
         return jsonify({
             "code": 0,
@@ -626,7 +622,7 @@ def lesson_doubt_chat():
                 "metadata": {
                     "generation_time": round(generation_time, 2),
                     "section_id": section_id,
-                    "language": target_language
+                    "language": language_code
                 }
             }
         })
