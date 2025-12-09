@@ -1,0 +1,113 @@
+{
+  "id": "poetry_basics",
+  "title": "Understanding Poetry",
+  "grade": "grade_5",
+  "subject": "english",
+  "difficulty": "beginner",
+  "estimated_time_minutes": 25,
+  "prerequisites": [],
+  "learning_objectives": [
+    "Understand what makes text a poem",
+    "Identify rhyme schemes",
+    "Recognize stanzas and lines",
+    "Analyze simple poetic devices"
+  ],
+  "sections": [
+    {
+      "id": "section_1",
+      "title": "What is Poetry?",
+      "type": "explanation",
+      "content": "Poetry is a special type of writing that uses creative language to express feelings, tell stories, or paint pictures with words.\n\n**Key Features of Poetry:**\n- **Lines**: Each row of words in a poem\n- **Stanzas**: Groups of lines, like paragraphs in stories\n- **Rhythm**: The beat or pattern of sounds\n- **Rhyme**: Words that sound similar at the end (like 'cat' and 'hat')\n\nExample:\n*Roses are red,*\n*Violets are blue,*\n*Sugar is sweet,*\n*And so are you.*\n\nThis poem has 4 lines, 1 stanza, and rhymes (blue/you, red/sweet).",
+      "allow_doubts": true,
+      "doubt_prompt": "Do you have any questions about poetry, lines, stanzas, or rhymes? I'm here to help!",
+      "ready_message": "Perfect! Now let's check your understanding.",
+      "questions": [
+        {
+          "id": "q1",
+          "question": "What do we call a group of lines in a poem?",
+          "answer": "stanza",
+          "evaluation_criteria": ["stanza", "stanzas"],
+          "hints": [
+            "It's like a paragraph in a story",
+            "It starts with 's'"
+          ]
+        },
+        {
+          "id": "q2",
+          "question": "Look at this poem:\n\n*The bird flew high in the sky,*\n*With wings spread far and wide.*\n*It sang a song, then said goodbye,*\n*And found a tree to hide.*\n\nWhich word rhymes with 'sky'?",
+          "answer": "goodbye",
+          "evaluation_criteria": ["goodbye", "good bye"],
+          "hints": [
+            "Look for words ending with the same sound as 'sky'",
+            "It's in the third line of the poem"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "section_2",
+      "title": "Rhyme Schemes",
+      "type": "explanation",
+      "content": "A **rhyme scheme** is the pattern of rhymes in a poem. We use letters to show which lines rhyme.\n\n**How it works:**\n- First line = A\n- If the next line rhymes with it = A\n- If it doesn't rhyme = B\n- And so on...\n\n**Example:**\n*The cat sat on the mat* (A)\n*Wearing a funny hat* (A)\n*The dog began to bark* (B)\n*Running through the park* (B)\n\nRhyme scheme: AABB (mat/hat rhyme, bark/park rhyme)",
+      "allow_doubts": true,
+      "doubt_prompt": "Need clarification on rhyme schemes? Ask me for more examples!",
+      "ready_message": "Great! Let's test your rhyme scheme knowledge.",
+      "questions": [
+        {
+          "id": "q3",
+          "question": "If a poem has lines ending with 'day', 'night', 'play', 'bright', what is the rhyme scheme?",
+          "answer": "ABAB",
+          "evaluation_criteria": ["ABAB", "abab"],
+          "hints": [
+            "day and play rhyme (both get A)",
+            "night and bright rhyme (both get B)",
+            "Look at which lines rhyme with each other"
+          ]
+        },
+        {
+          "id": "q4",
+          "question": "What do we call the pattern of rhymes in a poem?",
+          "answer": "rhyme scheme",
+          "evaluation_criteria": ["rhyme scheme"],
+          "hints": [
+            "It shows which lines rhyme using letters",
+            "It has the word 'rhyme' in it"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "section_3",
+      "title": "Analyzing a Poem",
+      "type": "explanation",
+      "content": "Let's analyze this short poem:\n\n*The moon shines bright at night,*\n*A silver coin in the sky.*\n*It watches over me till light,*\n*And then it waves goodbye.*\n\n**Analysis:**\n- 4 lines, 1 stanza\n- Rhyme scheme: ABAB (night/light, sky/goodbye)\n- Uses metaphor: moon is compared to a 'silver coin'\n- Personification: moon 'watches' and 'waves' like a person",
+      "allow_doubts": true,
+      "doubt_prompt": "Any questions about analyzing poems or these poetic devices? Feel free to ask!",
+      "ready_message": "Wonderful! Now let's see if you can analyze poems too.",
+      "questions": [
+        {
+          "id": "q5",
+          "question": "What is the moon compared to in this poem?",
+          "answer": "a silver coin",
+          "evaluation_criteria": ["silver coin", "coin"],
+          "hints": [
+            "Look at the second line",
+            "It's something round and shiny"
+          ]
+        },
+        {
+          "id": "q6",
+          "question": "When we give human qualities to non-human things (like the moon waving), what is this called?",
+          "answer": "personification",
+          "evaluation_criteria": ["personification"],
+          "hints": [
+            "It makes things act like persons",
+            "It starts with 'person'"
+          ]
+        }
+      ]
+    }
+  ],
+  "summary": "Excellent work! You've learned that poetry uses special language and structure. Poems have lines and stanzas, often use rhyme schemes (patterns of rhyming words), and include creative devices like metaphors and personification to make writing more interesting.",
+  "next_lessons": ["figurative_language"]
+}
