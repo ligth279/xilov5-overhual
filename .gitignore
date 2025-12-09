@@ -38,6 +38,7 @@ ENV/
 # IDE files
 .vscode/
 .idea/
+.vs/
 *.swp
 *.swo
 *~
@@ -73,3 +74,5 @@ node_modules/
 *.dll
 *.so
 *.dylib
+
+.s/

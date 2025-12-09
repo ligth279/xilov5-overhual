@@ -217,9 +217,17 @@ def chat():
         if translation_mode == 'google':
             language_code = 'en'
         elif not language_manager.is_supported(language_code):
-            # Try to detect from message if invalid language code (for direct mode)
-            detected_lang = language_manager.detect_language(user_message)
-            language_code = detected_lang if detected_lang else 'en'
+            # Direct mode logic changes here
+            requested_language = language_code
+            # Direct mode: generate in the requested language (validate support or try to detect from message)
+            if language_manager.is_supported(requested_language):
+                generation_language = requested_language
+                target_language = requested_language  # Direct generation
+            else:
+                # Fallback: generate in English and translate to requested language
+                generation_language = 'en'
+                target_language = requested_language
+                logger.info(f"Direct mode fallback: language '{requested_language}' not fully supported, generating in English and translating")
         
         logger.info(f"Translation mode: {translation_mode}, Target language: {target_language}, AI language: {language_code}")
         
@@ -276,7 +284,7 @@ def chat():
                 "metadata": {
                     "generation_time": round(generation_time, 2),
                     "device": model_status['device']['device'],
-                    "tokens_per_second": round(len(response.split()) / generation_time, 2),
+                    "tokens_per_second": round(len(response.split()) / generation_time, 2) if generation_time > 0 else 0,
                     "conversation_length": len(conversation_history) // 2,
                     "language": language_code,
                     "translation_mode": translation_mode,
@@ -663,7 +671,7 @@ def evaluate_answer():
             return jsonify({
                 "code": -1,
                 "message": "Empty answer"
-            }), 400
+            }, 400)
         
         # Get the question data
         question_data = lesson_manager.get_question(grade, subject, lesson_id, section_id, question_id)
@@ -672,7 +680,7 @@ def evaluate_answer():
             return jsonify({
                 "code": -1,
                 "message": "Question not found"
-            }), 404
+            }, 404)
         
         # Initialize answer evaluator with phi model if using AI evaluation
         if use_ai and not answer_evaluator.phi_model:
@@ -735,7 +743,7 @@ def get_hint():
             return jsonify({
                 "code": -1,
                 "message": "Question not found"
-            }), 404
+            }, 404)
         
         # Log the request for debugging
         logger.info(f"Hint request: level={hint_level}, has_answer={bool(student_answer)}, answer='{student_answer[:50] if student_answer else 'none'}'")
